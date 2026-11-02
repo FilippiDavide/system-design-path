@@ -1,0 +1,13 @@
+{
+  // Cloudflare Workers config: the site is a static export (web/out),
+  // served entirely as Worker static assets. No Worker script needed.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "system-design-path",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./out",
+    // Serve /chapters/ch01/ from chapters/ch01/index.html, 404.html otherwise.
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  }
+}
