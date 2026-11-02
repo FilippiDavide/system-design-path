@@ -1,0 +1,123 @@
+chapter: 10
+title: Consistency and Consensus
+cards:
+  - front: "Linearizability"
+    back: "The system behaves as if there were only a single copy of the data and every operation were atomic. As soon as a write has completed everyone sees it. It is a recency guarantee, the strongest consistency model in common use."
+    tags: [linearizability]
+  - front: "The extra constraint beyond old-or-new"
+    back: "There is one instant at which the value flips atomically, and after any read has seen the new value all subsequent reads must see it, even if the write hasn't finished. The value cannot flip back and forth."
+    tags: [linearizability]
+  - front: "Linearizability vs serializability"
+    back: "Serializability: isolation of transactions over multiple objects, as if in some serial order, allows stale reads. Linearizability: a single register, recency, does not group operations and does not prevent write skew. Together: strict serializability."
+    tags: [linearizability, transactions]
+  - front: "When linearizability is needed"
+    back: "Locking and leader election, strict uniqueness constraints (username, seat, stock), and races between cross-channel timing dependencies such as file storage plus a queue."
+    tags: [linearizability]
+  - front: "Cross-channel race"
+    back: "The web server writes a video to the file storage and sends a message to a queue. If the queue is faster than the storage's replication, the transcoder reads an old file. Two channels with no recency guarantee. Like Aaliyah's voice to Bryce."
+    tags: [linearizability]
+  - front: "Which replication models are linearizable"
+    back: "Single-leader potentially, if everything goes through the leader and you know who it is. Consensus likely. Multi-leader no. Leaderless probably not, even with quorums."
+    tags: [linearizability, replication]
+  - front: "Why quorums are not enough for linearizability"
+    back: "An in-flight write reaches the replicas at different times. A reads from two replicas and sees the new value, B starts after A, reads from two others and sees the old one. w + r > n holds but it is not linearizable. Synchronous read repair would be needed, and still no CAS."
+    tags: [linearizability, replication]
+  - front: "CAP, correct formulation"
+    back: "Consistent or available when partitioned. Partitions are not chosen, they happen. With a healthy network you have both, with a broken one you choose. Pick two of three is misleading."
+    tags: [cap]
+  - front: "Why CAP has little practical value"
+    back: "A single model (linearizability), a single fault (partitions, less than 8% of incidents), nothing about delays and dead nodes, an uncommon definition of availability, many systems neither CP nor AP. Superseded by more precise results."
+    tags: [cap]
+  - front: "PACELC"
+    back: "During a partition choose between availability and consistency; else, without a partition, choose between latency and consistency. A generalization of CAP with the same definitional flaws."
+    tags: [cap]
+  - front: "The real cost of linearizability"
+    back: "Latency, not fault tolerance. Not even multi-core RAM is linearizable, for performance. Attiya and Welch: the response time is at least proportional to the uncertainty of network delays. No faster algorithm exists."
+    tags: [linearizability]
+  - front: "Autoincrement on a single node"
+    back: "Linearizable: atomic fetch-and-add, if A finishes before B starts then B's ID is greater. But single point of failure, slow from other regions, bottleneck."
+    tags: [ids]
+  - front: "Distributed ID generators and ordering"
+    back: "Sharded (even and odd), preallocated blocks, random UUID v4, wall-clock timestamp made unique (UUID v7, Snowflake, ULID): all unique, none with an order consistent with causality nor linearizable."
+    tags: [ids]
+  - front: "Logical clock"
+    back: "An algorithm that counts events, not seconds. Compact and unique timestamps, totally ordered, consistent with causality: if A happens-before B then ts(A) < ts(B)."
+    tags: [clocks]
+  - front: "Lamport clock"
+    back: "Timestamp = (counter, node ID). The node increments when it generates; when it sees a greater timestamp from someone else it raises its own counter. Comparison: counter then ID. Total order consistent with causality, not linearizable."
+    tags: [clocks]
+  - front: "Limitations of the Lamport clock"
+    back: "No link to physical time, you can't search by date. Two nodes that never communicate have disconnected counters. It orders concurrent events arbitrarily without saying they were concurrent."
+    tags: [clocks]
+  - front: "Hybrid logical clock"
+    back: "Counts microseconds like a physical clock, aligns forward on others' timestamps, increments on every generation so it is monotonic even if the physical clock jumps backwards. Only approximate NTP needed. CockroachDB."
+    tags: [clocks]
+  - front: "Lamport and HLC vs vector clock"
+    back: "Lamport and HLC give a total order consistent with causality but don't distinguish concurrent events. The vector clock keeps one counter per node and detects concurrency, but takes much more space."
+    tags: [clocks]
+  - front: "The embarrassing photo"
+    back: "Profile set to private from the laptop, photo from the phone, two DBs with HLCs. The photo DB has never read from the account DB and assigns the photo a lower timestamp. A snapshot between the two sees the public account and the photo. A linearizable ID generator is needed."
+    tags: [ids, clocks]
+  - front: "Linearizable ID generator in practice"
+    back: "One node that increments, persists and replicates with single-leader. TiDB's timestamp oracle. Optimization: a batch of IDs persisted together, on a crash some are skipped. Cannot be sharded or distributed across regions."
+    tags: [ids]
+  - front: "Why a linearizable clock is not enough for constraints"
+    back: "The lowest timestamp wins, but a node doesn't know it has the lowest until it has heard from all the others. If one is dead or unreachable everything stops. Consensus is needed."
+    tags: [ids, consensus]
+  - front: "FLP"
+    back: "No deterministic algorithm can guarantee consensus if a node may crash. It holds in the purely asynchronous model with no timeouts. With timeouts to suspect crashes, or random numbers, consensus is solvable. It doesn't guarantee termination, it doesn't forbid deciding."
+    tags: [consensus]
+  - front: "The four properties of consensus"
+    back: "Uniform agreement (no one decides differently), integrity (no changing your mind), validity (the value was proposed): safety. Termination (whoever doesn't crash eventually decides): liveness."
+    tags: [consensus]
+  - front: "How many nodes are needed"
+    back: "At least a working majority for termination. The safety properties always hold, even if the majority goes down: an outage stops the system, it doesn't corrupt it."
+    tags: [consensus]
+  - front: "Problems equivalent to consensus"
+    back: "Linearizable CAS, shared log (total order broadcast), atomic commitment. A solution to one converts into a solution to the others. Fetch-and-add only for two nodes."
+    tags: [consensus]
+  - front: "CAS as consensus"
+    back: "Register at null, everyone does CAS(null, proposal), the final value is decided. Conversely, the CAS operations with the same expected value propose via consensus and the decided one wins."
+    tags: [consensus]
+  - front: "Shared log"
+    back: "Several nodes ask to append, all read the same entries in the same order. Properties: eventual append, reliable delivery, append-only, agreement on the prefix, validity. Implemented with total order broadcast."
+    tags: [consensus]
+  - front: "Consensus number of fetch-and-add"
+    back: "2. Whoever reads 0 wins but the others don't know who won, and if the winner crashes they are left hanging. With exactly two proposers whoever reads 1 decides the other's value. CAS and shared logs have infinite consensus number."
+    tags: [consensus]
+  - front: "Atomic commitment vs consensus"
+    back: "In consensus any proposed value is fine. In atomic commitment if one votes abort everyone aborts (validity) and if everyone votes commit with no timeout you commit (nontriviality). Equivalent nonetheless."
+    tags: [consensus, transactions]
+  - front: "State machine replication"
+    back: "Every entry of the shared log is a write, every replica applies the same writes in the same order with deterministic logic, they all converge. It is event sourcing. With deterministic stored procedures it gives serializable transactions."
+    tags: [consensus]
+  - front: "What is built on the shared log"
+    back: "Single-value and CAS: the first value in the log. Many instances: the first one with that seat number. Fetch-and-add: the sum of the entries. Fencing token: the sequence number of the entries, zxid in ZooKeeper."
+    tags: [consensus]
+  - front: "Epoch"
+    back: "Ballot in Paxos, view in Viewstamped Replication, term in Raft. Consensus doesn't guarantee a single leader at a time but a unique leader per epoch. In a conflict the higher epoch wins."
+    tags: [consensus]
+  - front: "The two rounds of voting"
+    back: "One to elect the leader, one for every entry the leader wants to append. A node votes yes only if it knows of no higher epoch. The quorums must overlap. Every entry is replicated to a quorum before the acknowledgment."
+    tags: [consensus]
+  - front: "Consensus vs 2PC"
+    back: "In consensus anyone can start an election and a quorum is enough. In 2PC only the coordinator asks for votes and all must say yes. Very different protocols despite the two rounds."
+    tags: [consensus, transactions]
+  - front: "Unclean leader election"
+    back: "Kafka option: any replica can become leader even if not up to date. More available, but the theory of consensus no longer applies and you risk data loss."
+    tags: [consensus]
+  - front: "Costs of consensus"
+    back: "Strict majority (3 for one fault, 5 for two), every operation talks to a quorum so adding nodes slows things down, in a partition only the majority makes progress, timeouts hard to tune across regions, Raft sensitive to a single unreliable link."
+    tags: [consensus]
+  - front: "Coordination service"
+    back: "ZooKeeper, etcd, Consul. Little data in memory replicated with consensus to coordinate other systems. Locks and leases, fencing tokens, failure detection with sessions and heartbeats, change notifications. Modeled after Chubby."
+    tags: [coordination]
+  - front: "What does not require consensus in a coordination service"
+    back: "Failure detection and change notifications. Locks, leases, CAS and fencing tokens do require consensus."
+    tags: [coordination]
+  - front: "Outsourcing consensus"
+    back: "A coordination service runs on 3 or 5 nodes and coordinates a system of thousands. Consensus across thousands of nodes would be inefficient. The data changes over minutes or hours, not thousands of times per second."
+    tags: [coordination]
+  - front: "Service discovery with consensus"
+    back: "Often overkill: you don't need linearizability, you need availability and speed. Better a cache with a TTL and bypass on failure, like DNS. ZooKeeper has observers: replicas that receive the log without voting."
+    tags: [coordination]

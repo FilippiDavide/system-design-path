@@ -1,0 +1,63 @@
+# Model answers for the chapter 3 self-check questions, in the same
+# order as the questions in docs/ch03-data-models.md.
+answers:
+  - section: impedance-mismatch-and-orms
+    pdf: 92
+    answer: |
+      N+1 is the pattern where the code runs one query to fetch N rows (say, the comments on a post) and then N more queries, one per row, to fetch something related (the author of each comment). The database could have answered the whole thing with one join, but the application turns it into N+1 round trips, and the cost grows with the size of the first result.
+
+      An ORM encourages it because it hides the translation between objects and tables: `comment.author.name` looks like a field access, so it is natural to write it inside a loop, and each access silently becomes a query. The impedance mismatch is reduced, not removed: you still have to think in both models, and the ORM makes the inefficient version the easiest one to write.
+  - section: normalization-id-or-text
+    pdf: 96
+    answer: |
+      An ID like `us:91` means nothing to humans, and therefore never has to change. Anything meaningful to humans ("Washington, DC", a job title, a company name) will eventually be renamed, merged or corrected, and if it is copied into many records every copy must be updated: more writes, more space, and the risk that the copies disagree. Keeping the fact once and referring to it by ID is what normalization means.
+
+      The cost is paid on read: resolving the ID needs a join or a lookup, which is awkward in a self-contained document and is one of the things document databases historically did badly. The trade-off is write-cheap and consistent versus read-cheap and duplicated; denormalized copies are best thought of as derived data that some process has to keep in step.
+  - section: normalization-id-or-text
+    pdf: 97
+    answer: |
+      X's materialized timeline stores only post IDs and author IDs, not the post text or the profile picture. When a timeline is read, the service looks up the posts and the profiles by ID in application code ("hydrating"), which is a join done on read. The data is kept normalized precisely because it changes too often (edits, deleted posts, new avatars, like counts) to be copied into every follower's timeline.
+
+      This shows that joins on read are not what stops a system from scaling: hydrating parallelizes well and its cost depends on the length of the timeline, not on how many followers an author has. The scalable design denormalizes the one thing that is expensive to compute (which posts go in which timeline) and leaves everything else normalized. "Joins don't scale" is a slogan; the real question is which joins, and where.
+  - section: star-and-snowflake-the-schemas-for-analytics
+    pdf: 101
+    answer: |
+      In a star schema a central fact table (one event per row, with its numeric measures and a foreign key per dimension) is surrounded by dimension tables that answer who, what, where, when, why. A snowflake schema breaks the dimensions themselves into sub-dimensions (product into brand and category, store into region), so the schema is more normalized and every query needs more joins. The star is usually preferred because it is simpler for analysts to work with.
+
+      Denormalization is harmless here because the data is historical: a sale that happened last March does not change, so there is no update that could leave the copies inconsistent, and the extra space buys faster queries. That is why "one big table", with the dimensions folded into the fact table as plain columns, is a reasonable choice in analytics and a bad one in OLTP.
+  - section: schema-on-read-vs-schema-on-write
+    pdf: 104
+    answer: |
+      No application can read data without assuming a structure: the code that reads a document expects certain fields with certain types. In a document database that structure is simply not written down and not enforced by the database; it lives in the code. So the schema is implicit, not absent.
+
+      The correct terms are schema-on-read (the structure is interpreted when the data is read, like dynamic type checking) versus schema-on-write (the structure is explicit and checked when the data is written, like static type checking). The difference is where the schema is enforced, not whether one exists.
+  - section: schema-on-read-vs-schema-on-write
+    pdf: 105
+    answer: |
+      Schema-on-read pays off when the records genuinely do not all have the same shape: many different object types that it would be silly to put in separate tables, or data whose structure is decided by external systems you do not control and that change without warning. In those cases a rigid schema would get in the way and a migration would run every time the outside world moved.
+
+      When all records have the same structure, the explicit schema is the better tool: it documents the data and protects it. Format changes are the usual argument against schema-on-write, but adding a column with a default is cheap everywhere; only the UPDATE that rewrites every row is slow, and it can be avoided by leaving the column NULL and filling it in on read, exactly as a document database would.
+  - section: property-graphs-and-cypher
+    pdf: 112
+    answer: |
+      "Who emigrated from the US to Europe" means: find a person whose birthplace is within the United States and whose residence is within Europe, where "within" may have to be followed any number of times (city to county to state to country, and the depth differs between countries). Cypher writes that as `-[:WITHIN*0..]->`, "follow WITHIN zero or more times", like `*` in a regular expression, and the whole query is four lines.
+
+      SQL has no notion of a path of unknown length: a join expresses a fixed number of hops, so you have to build the recursion yourself with `WITH RECURSIVE`, collecting all locations reachable from the US, all those reachable from Europe, then joining people against both. It works, but it takes some thirty lines and is hard to read, which is the point: the query language mirrors the data model, and the graph model is the one where variable-length relationships are first-class. The ISO GQL standard (2024) is built on Cypher for this reason.
+  - section: graphql-not-a-graph-database
+    pdf: 122
+    answer: |
+      GraphQL is not a graph database and not a graph query language: it is a way for a client (a browser or a mobile app) to ask a server for a JSON document shaped exactly like the UI it needs to render, and to change that shape without changing the server. It is implemented on top of any storage, relational or otherwise.
+
+      It is deliberately limited because the queries come from untrusted clients: there is no recursion and no arbitrary filtering, so no client can write a query that costs the server an unbounded amount of work (a denial of service). It also accepts larger, redundant responses, the author's name and picture repeated in every message, because that makes rendering simpler. Those are OLTP constraints; a real graph language like Cypher goes exactly the other way.
+  - section: 3-event-sourcing-and-cqrs
+    pdf: 127
+    answer: |
+      The value of an event log is that every view can be deleted and recomputed from scratch, with new code, and give the same answer. That only holds if replaying the events is deterministic. An event that says "charged 100 EUR" and leaves the conversion to the reader forces the view to look up an exchange rate; at replay time the rate has changed, so the rebuilt view disagrees with the original one and with the money that actually moved.
+
+      The fix is to record the external fact inside the event: the rate that was used, the converted amount, anything the view would otherwise have to fetch. The same reasoning applies to every external side effect, such as an email that must not be sent again on replay.
+  - section: 3-event-sourcing-and-cqrs
+    pdf: 128
+    answer: |
+      That every consumer sees the events in the same order. A view is a fold over the log: "booked, then cancelled" and "cancelled, then booked" produce different states, so two views that read the same events in different orders will disagree, and a view rebuilt later will not match the one it replaces. Everything else about event storage is negotiable (which store, which format, how long to keep events), but ordering is not.
+
+      It is also the hard part: inside one machine an append-only log gives you the order for free, while across a distributed system agreeing on a single order of events is a consensus problem (ch. 10), and it is why Kafka-style logs partition and order within a partition.

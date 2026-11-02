@@ -1,0 +1,200 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. White surface, black ink, a dot-matrix display face
+ * for numerals/headings (Nothing-style) and a small set of validated
+ * neon hues reserved for diagrams, labs and state indicators.
+ */
+:root {
+  --surface: #ffffff;
+  --surface-2: #f4f4f2;
+  --ink: #0a0a0a;
+  --ink-2: #5b5b58;
+  --ink-3: #9a9a95;
+  --line: #0a0a0a;
+  --line-soft: #d9d9d4;
+
+  /* Validated categorical palette (light surface, fixed order). */
+  --neon-1: #0062ff; /* electric blue   */
+  --neon-2: #ff1fcf; /* neon magenta    */
+  --neon-3: #009e4b; /* neon green      */
+  --neon-4: #6a2cff; /* violet          */
+  --neon-5: #ff7a00; /* neon orange     */
+
+  /* Status (reserved, never used as series colors). */
+  --ok: #009e4b;
+  --warn: #ff7a00;
+  --bad: #e5002b;
+
+  /* Nothing red: the single UI accent (current position, active state). */
+  --accent: #d71921;
+}
+
+@theme inline {
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-neon-1: var(--neon-1);
+  --color-neon-2: var(--neon-2);
+  --color-neon-3: var(--neon-3);
+  --color-neon-4: var(--neon-4);
+  --color-neon-5: var(--neon-5);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --color-accent: var(--accent);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains);
+  --font-dot: var(--font-doto);
+}
+
+html {
+  background: var(--surface);
+  color: var(--ink);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-feature-settings: "cv11", "ss01";
+}
+
+::selection {
+  background: var(--ink);
+  color: var(--surface);
+}
+
+/* Dot-matrix display face: used for numerals and section labels. */
+.font-dot {
+  font-family: var(--font-doto), monospace;
+  font-variation-settings: "ROND" 100;
+  letter-spacing: 0.04em;
+}
+
+/* Subtle engineering grid used behind diagrams and the hero. */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, var(--line-soft) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--line-soft) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* ---------- Prose (rendered markdown) ---------- */
+.prose {
+  font-size: 1.0rem;
+  line-height: 1.7;
+  color: var(--ink);
+}
+.prose > * + * { margin-top: 1rem; }
+.prose h2 {
+  font-family: var(--font-doto), monospace;
+  font-variation-settings: "ROND" 100;
+  font-weight: 700;
+  font-size: 1.6rem;
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+  margin-top: 3.5rem;
+}
+/* Full-width rule above a top-level section (set on the heading wrapper). */
+.section-h2 {
+  border-top: 1px solid var(--line);
+  padding-top: 1rem;
+}
+.section-h2 h2 { margin-top: 0; }
+.prose h3 {
+  font-family: var(--font-jetbrains), monospace;
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-top: 2.5rem;
+}
+.prose h4 { font-weight: 600; margin-top: 1.5rem; }
+.prose p { max-width: 70ch; }
+.prose strong { font-weight: 650; }
+.prose em { font-style: italic; }
+.prose a { text-decoration: underline; text-underline-offset: 3px; }
+.prose ul, .prose ol { padding-left: 1.25rem; max-width: 70ch; }
+.prose ul { list-style: none; padding-left: 0; }
+.prose ul > li { position: relative; padding-left: 1.25rem; }
+.prose ul > li::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0.72em;
+  width: 6px; height: 6px;
+  border-radius: 9999px;
+  background: var(--ink);
+}
+.prose ol { list-style: decimal; }
+.prose li + li { margin-top: 0.35rem; }
+.prose li > ul { margin-top: 0.35rem; }
+.prose li > ul > li::before { background: transparent; border: 1px solid var(--ink); }
+.prose blockquote {
+  border-left: 2px solid var(--ink);
+  padding-left: 1rem;
+  color: var(--ink-2);
+  font-style: italic;
+  max-width: 70ch;
+}
+.prose code {
+  font-family: var(--font-jetbrains), monospace;
+  font-size: 0.86em;
+  background: var(--surface-2);
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+}
+.prose pre {
+  font-family: var(--font-jetbrains), monospace;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  padding: 1rem;
+  overflow-x: auto;
+  border-radius: 4px;
+}
+.prose pre code { background: transparent; padding: 0; font-size: inherit; }
+.prose hr { border: 0; border-top: 1px dashed var(--line-soft); margin: 2.5rem 0; }
+
+/* Tables: mobile-first, scroll horizontally instead of breaking. */
+.prose .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.prose table {
+  width: 100%;
+  min-width: 480px;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.prose th {
+  text-align: left;
+  font-family: var(--font-jetbrains), monospace;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+  padding: 0.6rem 0.75rem 0.5rem 0;
+  border-bottom: 1px solid var(--line);
+  vertical-align: bottom;
+}
+.prose td {
+  padding: 0.55rem 0.75rem 0.55rem 0;
+  border-bottom: 1px solid var(--line-soft);
+  vertical-align: top;
+}
+.prose tr > td:first-child { font-weight: 600; }
+
+/* Mermaid fallback: strip the default theme to flat black/white. */
+.mermaid-fallback svg {
+  max-width: 100%;
+  height: auto;
+  font-family: var(--font-jetbrains), monospace !important;
+}
+
+/* Reduce motion for users who ask for it. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

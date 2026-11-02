@@ -1,0 +1,69 @@
+chapter: 14
+title: Fare la cosa giusta
+cards:
+  - front: "L'etica nel software"
+    back: "Non una checklist di conformità ma un processo partecipativo e iterativo di riflessione, in dialogo con le persone coinvolte, con responsabilità per i risultati. I concetti richiedono interpretazione."
+    tags: [ethics]
+  - front: "Prigione algoritmica"
+    back: "Chi è etichettato rischioso da un algoritmo subisce molti no: lavoro, voli, assicurazione, affitto, credito. Esclusione sistematica senza prova di colpa e con poco appello, mentre la giustizia presume l'innocenza."
+    tags: [prediction]
+  - front: "Machine learning come riciclaggio per i pregiudizi"
+    back: "Con l'analisi predittiva le regole sono inferite dai dati. Se l'input ha un bias, il sistema lo impara e lo amplifica. Feature correlate ai tratti protetti, come il codice postale, aggirano le leggi antidiscriminazione."
+    tags: [prediction]
+  - front: "Credit score vs analisi predittiva"
+    back: "Il credit score chiede come ti sei comportato, su fatti correggibili. La predizione chiede chi è simile a te e come si è comportato: uno stereotipo, spesso su dove vivi, opaco e senza ricorso."
+    tags: [prediction]
+  - front: "Responsabilità degli algoritmi"
+    back: "Un umano che sbaglia risponde e chi subisce può appellarsi. Chi risponde per l'auto autonoma, il credit scoring discriminatorio, la decisione ML da spiegare a un giudice? Nessuno può scaricare la colpa sull'algoritmo."
+    tags: [prediction]
+  - front: "Dati statistici e singolo caso"
+    back: "La distribuzione può essere giusta e il singolo caso sbagliato: un'aspettativa di vita di 80 anni non dice quando morirai tu. La fede cieca nei dati è delusoria e pericolosa."
+    tags: [prediction]
+  - front: "Feedback loop auto-rinforzante"
+    back: "Credit score usato per assumere: una disgrazia fa saltare pagamenti, il punteggio cala, non trovi lavoro, la povertà peggiora il punteggio. I prezzi algoritmici dei distributori tedeschi hanno imparato a colludere."
+    tags: [prediction]
+  - front: "Pensiero sistemico"
+    back: "Considerare l'intero sistema, persone comprese, e chiedersi se amplifica le differenze esistenti o combatte l'ingiustizia. Molte conseguenze si prevedono così, anche con le migliori intenzioni."
+    tags: [prediction]
+  - front: "Quando l'utente non è il cliente"
+    back: "Se il servizio vive di pubblicità, i clienti sono gli inserzionisti. Il tracciamento serve a loro: profili dettagliati conservati a lungo. L'utente riceve un servizio gratis ed è indotto a usarlo il più possibile. È sorveglianza."
+    tags: [privacy]
+  - front: "L'esperimento della parola"
+    back: "Sostituisci dati con sorveglianza: warehouse di sorveglianza, scienziati della sorveglianza. Il libro diventa Designing Surveillance-Intensive Applications. Abbiamo costruito la più grande infrastruttura di sorveglianza mai vista."
+    tags: [privacy]
+  - front: "Perché accettiamo la sorveglianza"
+    back: "Non ho nulla da nascondere: cioè sei allineato al potere e non temi persecuzioni, non tutti sono così fortunati. Lo scopo sembra benigno, ma unito alla predizione diventa premi assicurativi e coperture sanitarie."
+    tags: [privacy]
+  - front: "Tre problemi del consenso"
+    back: "Perché il tracciamento è necessario, solo perché la pubblicità paga? Nessuno capisce cosa fornisce, e i dati parlano anche di altri che non hanno accettato. L'estrazione è unidirezionale, senza negoziazione."
+    tags: [privacy]
+  - front: "Consenso secondo il GDPR"
+    back: "Libero, specifico, informato e inequivocabile, revocabile senza pregiudizio, in linguaggio chiaro. Caselle pre-spuntate e silenzio non valgono. Esistono altre basi legali come l'interesse legittimo."
+    tags: [privacy]
+  - front: "Perché non usare il servizio non è una scelta libera"
+    back: "Se è considerato essenziale per la partecipazione sociale, con effetti di rete e meccaniche da gioco d'azzardo, rinunciare è possibile solo per pochi privilegiati. Per gli altri la sorveglianza è ineludibile."
+    tags: [privacy]
+  - front: "Privacy come diritto di decisione"
+    back: "Non tenere tutto segreto, ma la libertà di scegliere cosa rivelare a chi, in ogni situazione. Chi ha una malattia rara darebbe i dati ai ricercatori ma deve poter scegliere chi vi accede."
+    tags: [privacy]
+  - front: "Dove va il diritto alla privacy con la sorveglianza"
+    back: "Non si erode, si trasferisce all'azienda, che decide cosa rivelare per il profitto e tiene segreto il resto. L'utente perde l'agency anche senza reidentificazione. Trasferimento senza precedenti storici."
+    tags: [privacy]
+  - front: "Data exhaust"
+    back: "Suggerisce rifiuto riciclato. È il contrario: se la pubblicità paga, l'attività dell'utente è una forma di lavoro e l'app è l'esca per alimentare l'infrastruttura di sorveglianza."
+    tags: [privacy]
+  - front: "I dati come nuovo uranio"
+    back: "Asset tossico, materiale pericoloso: tutti li vogliono, aziende, governi, fallimenti che li vendono, violazioni frequenti. Bilancia i benefici con il rischio che finiscano in mani sbagliate, inclusi tutti i governi futuri."
+    tags: [privacy]
+  - front: "Igiene civica"
+    back: "Schneier: è cattiva igiene civica installare tecnologie che un giorno potrebbero facilitare uno stato di polizia. Non solo il governo di oggi, tutti i governi futuri."
+    tags: [privacy]
+  - front: "L'analogia con la rivoluzione industriale"
+    back: "Crescita e benessere, ma inquinamento e sfruttamento finché arrivarono le tutele, che alzarono i costi e fecero bene a tutti. I dati sono l'inquinamento dell'era dell'informazione e la privacy la sfida ambientale."
+    tags: [privacy]
+  - front: "Minimizzazione vs big data"
+    back: "Il GDPR chiede scopi specifici ed espliciti e dati limitati al necessario. Il big data vuole raccogliere il massimo, combinare ed esplorare per scopi imprevisti. Direttamente opposti. Applicazione debole finora."
+    tags: [law]
+  - front: "Il primo passo pratico"
+    back: "Non conservare per sempre: cancellare appena non serve e raccogliere il minimo. I dati che non hai non possono essere rubati, trafugati né richiesti da un governo. Serve un cambio culturale."
+    tags: [law]

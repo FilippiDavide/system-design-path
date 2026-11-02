@@ -1,0 +1,75 @@
+# Model answers for the chapter 5 self-check questions, in the same
+# order as the questions in docs/ch05-encoding-and-evolution.md.
+answers:
+  - section: 1-two-directions-of-compatibility
+    pdf: 186
+    answer: |
+      Backward compatibility: new code can read data written by old code. Forward compatibility: old code can read data written by new code. Both are needed as soon as old and new code coexist, which they always do: a rolling upgrade runs both versions at once, clients do not update on your schedule, and data in a database outlives the code that wrote it.
+
+      Backward is the easy direction. The author of the new code knows the old format, so it can handle it explicitly, for example by filling in a default for a missing field. Forward is harder because the old code was written before the new format existed: it must ignore what it does not understand without breaking, and the format has to make that possible (Protobuf tags carry a wire type so unknown fields can be skipped; Avro resolves schemas by name and ignores unknown fields).
+  - section: 1-two-directions-of-compatibility
+    pdf: 186
+    answer: |
+      New code writes a record with a new field. Old code reads that record, which works because the format lets it skip the unknown field. Then the old code modifies something else in the record and writes it back. If its in-memory model only has room for the fields it knows, the unknown field was discarded on read, and the write-back silently deletes it from the database. Nothing fails; the data is simply gone. The same trap applies to a consumer that republishes a message to another topic.
+
+      The fix is a rule for the old code: unknown fields must be preserved, not discarded. Decoders should keep unknown bytes alongside the parsed object and write them back untouched (Protobuf implementations do this, and the database or the application layer must be careful not to lose them on a read-modify-write).
+  - section: language-specific-formats-never
+    pdf: 188
+    answer: |
+      `pickle`, like `java.io.Serializable` and Ruby's `Marshal`, encodes arbitrary objects, so decoding has to be able to instantiate arbitrary classes. The bytes themselves say which classes to create and with which state. If an attacker controls the bytes, they can make the decoder construct objects that run code of their choosing: remote code execution.
+
+      The book adds the other reasons these formats are wrong for anything but transient use: they tie the data to one language, they ignore versioning and compatibility, and they are slow and bloated. Use them only for data that never leaves the process.
+  - section: json-xml-csv
+    pdf: 189
+    answer: |
+      JSON does not distinguish integers from floating-point numbers and does not specify a precision. JavaScript parses every number as an IEEE 754 double, which represents integers exactly only up to 2^53. X's post IDs are 64-bit integers, so a JavaScript client reading the ID as a number would silently round it to a different value.
+
+      That is why the API sends the ID twice: once as a JSON number, for clients whose parsers handle 64-bit integers, and once as a decimal string, which every client can carry around without corrupting it. It is a workaround for a flaw of the format, not of the data.
+  - section: protocol-buffers-numeric-tags
+    pdf: 193
+    answer: |
+      In Protobuf the encoded bytes never contain field names, only numeric tags (with the wire type packed into the same byte). So you can rename a field freely: the tag stays the same and old and new code decode the same bytes. What you can never change is the tag of a field, because the tag is the field's identity: changing it makes all existing data unreadable (old data carries the old tag, which the new code does not know, and vice versa).
+
+      Corollaries: a new field needs a new, never-used tag and must be optional with a default; a removed field's tag is declared `reserved` so nobody reuses it; a type change such as int32 to int64 is allowed but old code may truncate wide values.
+  - section: avro-two-schemas
+    pdf: 196
+    answer: |
+      Avro bytes are just values concatenated, with no field names, tags or type markers, so decoding is only possible by walking a schema in field order. The trick is that Avro distinguishes the writer's schema (the one the data was encoded with) from the reader's schema (the one the application expects), and the two need not be identical, only compatible. The reader obtains the writer's schema (from the start of an object container file, from a version number in a schema registry, or negotiated at connection setup) and resolves the two schemas.
+
+      Resolution matches fields by name: field order can differ; a field in the writer's schema but not in the reader's is ignored; a field in the reader's but not in the writer's takes its default value. This is why fields can only be added or removed if they have a default, and why `null` must be made explicit with a union.
+  - section: avro-two-schemas
+    pdf: 196
+    answer: |
+      Because Avro has no tags, a schema is nothing more than the list of field names and types. You can generate it mechanically from a relational table, one column one field, and every time the table changes you simply regenerate the schema; the new schema is compatible with the old data as long as the resolution rules hold, since fields are matched by name.
+
+      With Protobuf every field must carry a numeric tag that is its identity, so a generator would have to assign tags by hand and guarantee that a tag is never reused or reassigned when a column is dropped or added. That bookkeeping has to live outside the database schema, which is exactly what makes dynamically generated Protobuf schemas awkward. Avro was designed for this use case in Hadoop.
+  - section: through-a-database
+    pdf: 202
+    answer: |
+      A deployment replaces the code in minutes, but rows written five years ago are still on disk in the encoding of that time. Rewriting all of it into the latest format is expensive, so databases avoid it: an LSM storage engine rewrites old records into the new format only when compaction touches them, and a relational database adds a column with a null default and fills it in when a row is read. The database looks as if it had a single schema while several historical encodings coexist on disk.
+
+      The implications: every change must be backward compatible with every version ever written, not just the previous one, and simple schema changes (adding a nullable column) are cheap while structural ones (single-valued to multi-valued, moving data to another table) require an explicit migration at the application level, often with a rewrite.
+  - section: through-services-rest-and-rpc
+    pdf: 204
+    answer: |
+      A local call is predictable and depends only on you; a network request can be lost, and the server can be slow or down. A local call returns, throws, or never returns; a network request has a fourth outcome, the timeout, after which you do not know whether it executed. Retrying a local call is harmless; retrying a network request can execute it twice unless the operation is idempotent.
+
+      Further differences: latency varies from under a millisecond to seconds instead of being constant; you cannot pass pointers, everything is encoded into bytes; and the two sides may be in different languages, so types have to be translated (the 2^53 problem again). This is why making a remote call look like a local one, the goal of RPC frameworks from CORBA to SOAP, is a fundamental mistake.
+  - section: through-services-rest-and-rpc
+    pdf: 204
+    answer: |
+      DNS can return several IP addresses for one name, so it works as a crude form of service discovery and load balancing. But DNS propagates slowly and is cached at many levels, so when instances start and stop frequently (autoscaling, container orchestration, rolling deployments) clients keep connecting to stale IPs of instances that no longer exist.
+
+      A service discovery system (etcd, ZooKeeper, Consul) is built for that dynamic environment: each instance registers itself with host, port and metadata such as shard or datacenter, keeps sending heartbeats, and is removed when it stops; the client queries the registry and connects directly. A service mesh goes one step further and moves the load balancer into a sidecar next to every client and server.
+  - section: durable-execution-and-workflows
+    pdf: 211
+    answer: |
+      Durable execution logs every RPC and state change of a workflow, like a write-ahead log. When a task crashes and is retried, the engine re-executes the code and, call by call, skips the calls that already succeeded by returning their logged result, so the workflow as a whole runs exactly once.
+
+      That replay assumes the code makes the same calls in the same order as the logged execution. If a new version of the code reorders two calls, the replay of an in-flight execution finds a log that does not match: it may return the result of the wrong call or re-execute something that already happened. For the same reason the code must be deterministic (no random numbers, no system clock outside the framework's). The safe way to change the code is to deploy the new version alongside the old one and let in-flight executions finish on the version they started with.
+  - section: event-driven-architectures
+    pdf: 213
+    answer: |
+      With a queue, a message is published to a named queue and exactly one of the consumers receives it; the consumers share the work, which is the pattern for distributing tasks across workers. With a topic, a message is published to a named topic and every subscriber receives a copy; this is publish/subscribe, the pattern for notifying several independent consumers of the same event.
+
+      In both cases the broker sits between sender and recipients: the sender does not wait, the message is buffered if a recipient is down, and the sender does not need to know who consumes. The message is bytes plus metadata, so the encoding (Protobuf, Avro, JSON with a schema registry) must follow the same compatibility rules as everywhere else.

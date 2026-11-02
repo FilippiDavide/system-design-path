@@ -1,0 +1,95 @@
+# Model answers for the chapter 10 self-check questions, in the same
+# order as the questions in docs/ch10-consistency-and-consensus.md.
+answers:
+  - section: what-makes-it-linearizable
+    pdf: 428
+    answer: |
+      Linearizability: the system behaves as if there were a single copy of the data and every operation took effect atomically at one instant between its start and its end, so as soon as a write has completed every reader sees it. It is a recency guarantee.
+
+      "Concurrent reads may return either the old or the new value" is only part of the story. On its own it would let the value flip back and forth while the write is in flight. The missing constraint is that there is one instant at which the value flips, and once any client has seen the new value, every later read (on any client) must see it too, even if the write has not returned yet. Graphically: pick a point inside every bar and the line joining them must always move forward in time.
+  - section: 1-linearizability
+    pdf: 426
+    answer: |
+      Bryce's read started after Aaliyah's read had finished, and Aaliyah's read returned the final result. Linearizability says that a read starting after another operation completed must see a state at least as recent, so "match in progress" violates the recency guarantee. His request simply went to a lagging replica.
+
+      Had they refreshed at the same time, the two reads would have been concurrent with each other and with the write of the result; a concurrent read is allowed to return either value, so there would be no violation and no surprise.
+  - section: it-is-not-serializability
+    pdf: 431
+    answer: |
+      Serializability allows stale reads: it only requires the outcome to be as if the transactions ran in some serial order, which may differ from the real-time order, so a transaction may read a snapshot that is older than a concurrent committed one. Linearizability does not allow them, because it is a recency guarantee on a single register.
+
+      What linearizability does not prevent: it says nothing about grouping several operations into a transaction over multiple objects, so it does not prevent write skew or other multi-object anomalies. The two guarantees are chosen almost independently; together they are called strict serializability.
+  - section: when-it-is-really-needed
+    pdf: 432
+    answer: |
+      There are two channels between the web server and the transcoder: the file storage, where the video is written, and the message queue, where the "transcode this" message is sent. If the queue delivers faster than the storage replicates internally, the transcoder reads an old or missing file from a lagging replica, and the two videos stay inconsistent forever. The race is between the two channels, like Aaliyah telling Bryce by voice.
+
+      A linearizable file storage eliminates it: once the write has completed, any subsequent read, from any node, sees the new file. The alternative is to make the second channel carry enough information (e.g. a version) to detect staleness, which is more complex.
+  - section: who-implements-it
+    pdf: 435
+    answer: |
+      Take n = 3, w = 3, r = 2. A write sets x from 0 to 1 and arrives at the replicas at different times. Client A reads from two replicas and sees {1, 0}, so it returns 1. Client B starts after A has finished, reads from two other replicas that have not yet received the write, sees {0, 0} and returns 0. w + r > n holds, yet B read an older value after A had seen the new one: not linearizable.
+
+      The fix is synchronous read repair before replying, and reading the maximum timestamp before every write. Riak skips it for performance; Cassandra waits for read repair but loses linearizability with physical clocks. Even then you only get linearizable reads and writes: a linearizable compare-and-set still requires consensus.
+  - section: the-cost
+    pdf: 437
+    answer: |
+      Each core has its own cache and a store buffer, and writes reach main memory asynchronously, so another core may read a stale value right after a write completed. This is not done for fault tolerance but for performance: memory barriers exist precisely because the default is not linearizable.
+
+      That is the lesson about cost. The real price of linearizability is not availability under partitions but latency: Attiya and Welch proved that a linearizable system's response time is at least proportional to the uncertainty of network delays, and no faster algorithm exists. Weaker models can be faster, which is why databases and CPUs alike give it up.
+  - section: the-cost
+    pdf: 437
+    answer: |
+      Correct statement: when the network is partitioned, a system must choose between linearizability (isolated replicas wait or return errors: CP) and availability in the sense of every replica keeping going (AP). Without a partition you can have both; PACELC adds that in the normal case you trade latency against consistency.
+
+      "Pick two of three" is misleading because partitions are not a choice: they happen. You cannot "not pick P". It also uses a definition of availability that differs from the common one, so many real systems are neither CP nor AP. The theorem covers a single consistency model and a single fault type and says nothing about delays or dead nodes, so it has been superseded by more precise results.
+  - section: lamport-clocks
+    pdf: 444
+    answer: |
+      A Lamport timestamp is a pair (counter, node id). A node increments its counter when generating a timestamp and raises it to the maximum it has seen on any received timestamp. This guarantees a total order consistent with causality: if A happened before B, ts(A) < ts(B). It does not guarantee the converse: two timestamps do not tell you whether the events were concurrent or causally related, and the order is not linearizable, so a timestamp does not say whether a value is up to date. There is also no link to physical time.
+
+      Aaliyah and Caleb post without having seen each other's message, so neither raised its counter because of the other: both generate (1, own id). Bryce, who receives both, moves to 1 and replies with (2, Bryce). The tie between the two 1s is broken by node id, an arbitrary but consistent choice.
+  - section: a-linearizable-id-generator
+    pdf: 447
+    answer: |
+      The account database and the photo database each have their own hybrid logical clock. User A sets the profile to private from the laptop (account DB assigns timestamp t1) and then uploads a photo from the phone (photo DB). The photo DB has never received any timestamp from the account DB, so its clock is behind and assigns the photo t0 < t1, although the upload happened after the permission change.
+
+      An observer taking a snapshot with a timestamp between t0 and t1 sees the account still public and the photo already present, and the photo is shown to someone who should not see it. HLCs only respect causality through messages actually exchanged; a linearizable ID generator (a single timestamp oracle) orders the two operations correctly.
+  - section: not-enough-for-constraints
+    pdf: 449
+    answer: |
+      With a linearizable clock every request for the username gets a timestamp, and the rule "lowest timestamp wins" is sound because no future request can get a lower one. The problem is knowing that you have the lowest: a node must hear from every other node that could have requested the same name. If one of them is dead or unreachable, nobody can decide and the whole thing stops.
+
+      That is not fault tolerant. Deciding a unique winner while some nodes may be down is exactly the consensus problem, which needs only a majority, not everyone.
+  - section: the-many-faces
+    pdf: 451
+    answer: |
+      Uniform agreement: no two nodes decide differently (safety). Integrity: once a node has decided, it does not change its mind (safety). Validity: the decided value was proposed by some node, which rules out trivial algorithms that always decide null (safety). Termination: every node that does not crash eventually decides (liveness).
+
+      The three safety properties are trivial without fault tolerance (a dictator decides). All the difficulty is termination, which requires progress even if a node disappears forever and therefore needs at least a majority of working nodes. Safety holds always, even when the majority is down: an outage stops the system, it does not corrupt it.
+  - section: the-many-faces
+    pdf: 451
+    answer: |
+      From CAS to fetch-and-add is easy (read, CAS(v, v+1), retry). The other direction fails beyond two nodes: start the counter at 0 and let everyone do fetch-and-add; whoever reads 0 wins. The others know they lost but cannot tell who won, and if the winner crashes before announcing it they are stuck forever. With exactly two proposers it works, because whoever reads 1 knows the other one won and can decide the other's value. Hence consensus number 2.
+
+      With a CAS on a register initialised to null, every node does CAS(null, own proposal); the register ends up holding one value that everyone can read, for any number of proposers. The same holds for a shared log (the first entry decides). CAS and shared logs therefore have infinite consensus number.
+  - section: from-single-leader-to-consensus
+    pdf: 458
+    answer: |
+      Consensus algorithms do not guarantee a single leader at a time; they guarantee something weaker. Each election has an epoch number (term in Raft, ballot in Paxos, view in VR), and within an epoch the leader is unique. Any node that suspects the leader is dead starts an election with a higher epoch; conflicts are resolved by the higher epoch winning.
+
+      The leader then proves it is still the leader on every proposal: before an entry counts as committed it must be acknowledged by a quorum, and a node acknowledges only if it knows of no higher epoch. Because election quorums and proposal quorums overlap, a deposed leader is discovered by at least one voter. So the circle is broken by replacing "elect one leader" with "elect a leader per epoch and check the epoch on every write".
+  - section: from-single-leader-to-consensus
+    pdf: 458
+    answer: |
+      1. Who starts: in Raft any node can start an election; in 2PC only the coordinator asks for votes.
+      2. How many must agree: a quorum (majority) is enough in Raft, both for the election and for committing an entry; in 2PC all participants must vote yes.
+      3. What happens on failure: in Raft a crashed leader is replaced by a new epoch and committed entries survive; in 2PC a crashed coordinator leaves the participants in doubt, holding locks, until it comes back.
+
+      A fourth difference in substance: in consensus any proposed value is acceptable, whereas in atomic commitment a single abort vote forces abort.
+  - section: coordination-services
+    pdf: 461
+    answer: |
+      Locks and leases (a fault-tolerant atomic CAS) and fencing tokens (a monotonic id per log entry such as ZooKeeper's zxid or etcd's revision) require consensus, because they need a single value that everyone agrees on. Failure detection (sessions with heartbeats, ephemeral nodes) and change notifications (watches on keys) do not: they are built on top of the replicated state and do not require agreement.
+
+      Service discovery usually does not need linearizability; it needs to be available and fast. Reading from a consensus quorum adds latency and stops working on the minority side of a partition. The usual answer is to cache with a TTL and bypass the cache on failure, like DNS, or to use observers: replicas that receive the log without voting and serve stale but scalable reads.

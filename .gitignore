@@ -1,0 +1,14 @@
+# The book itself and its full-text extracts are copyrighted: never commit them.
+# Put the PDF at web/public/book.pdf locally to enable the deep links.
+*.pdf
+source/*.txt
+
+# Python
+__pycache__/
+*.pyc
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

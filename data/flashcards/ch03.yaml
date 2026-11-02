@@ -1,0 +1,96 @@
+chapter: 3
+title: Data Models and Query Languages
+cards:
+  - front: Declarative language
+    back: You say what you want, not how to get it. The engine chooses indexes, join algorithms and parallelism, and can improve them without the queries changing. SQL, Cypher, SPARQL, Datalog.
+    tags: [query-languages]
+  - front: Impedance mismatch
+    back: Mismatch between objects in the code and tables in the database. ORMs reduce the boilerplate but do not eliminate it.
+    tags: [relational]
+  - front: N+1 problem
+    back: One query for N records, then N separate queries to resolve a reference of each one, instead of a join. Typical of ORMs if you don't ask for a joint fetch.
+    tags: [relational, performance]
+  - front: When is the document model preferable?
+    back: Tree-shaped data of one-to-many relationships, loaded in its entirety. Read locality, no shredding across several tables. Small documents and few updates.
+    tags: [document]
+  - front: Document locality
+    back: The document is a contiguous string, read with a single access. An advantage only if you need almost all of it. Updating rewrites the whole document.
+    tags: [document]
+  - front: Why reference a region by ID and not by name?
+    back: An ID has no human meaning and therefore never changes. Human-readable text changes and, if duplicated, must be updated everywhere. More normalization, fewer duplicates.
+    tags: [normalization]
+  - front: Normalized vs denormalized
+    back: Normalized writes fast and reads with a join. Denormalized reads fast and writes expensively with a risk of inconsistency. OLTP tends toward normalized, analytics toward denormalized.
+    tags: [normalization]
+  - front: Hydrating
+    back: Join performed in application code to resolve IDs into readable data. X's timeline stores only post and author IDs and hydrates on read because likes and profile pictures change too often.
+    tags: [normalization, case-study]
+  - front: Do joins on read prevent scalability?
+    back: No. Hydrating the IDs parallelizes well and the cost does not depend on the number of followers. The scalable solution denormalizes some things and leaves others normalized.
+    tags: [normalization, scalability]
+  - front: Many-to-many in relational and in document
+    back: In relational a join table. In document references by ID to other documents, with secondary indexes even inside JSON arrays to query in both directions.
+    tags: [relational, document]
+  - front: Star schema
+    back: Fact table at the center, one event per row with measures and foreign keys, surrounded by dimension tables describing who, what, where, when. Wide tables, many-to-one relationships.
+    tags: [analytics]
+  - front: Snowflake schema and one big table
+    back: Snowflake breaks dimensions into subdimensions, more normalized. One big table eliminates the dimensions and puts everything in the fact table. The star remains the favorite for simplicity.
+    tags: [analytics]
+  - front: Schema-on-read vs schema-on-write
+    back: On-write is explicit and enforced on write, like static type checking. On-read is implicit and interpreted on read, like dynamic type checking. Schemaless is a misleading term.
+    tags: [schema]
+  - front: When does schema-on-read pay off?
+    back: "Heterogeneous data: many object types that don't fit in separate tables, or a structure dictated by external systems that change. If all records have the same shape, the schema helps."
+    tags: [schema]
+  - front: Schema-on-write migration without rewriting the table
+    back: Adding the column with default NULL is fast. Fill it in on read instead of a massive UPDATE, as a document database would do.
+    tags: [schema, operations]
+  - front: Property graph
+    back: Vertices with id, label, properties, incoming and outgoing edges. Edges with id, tail and head vertex, label, properties. In SQL two tables with indexes on both ends of the edges.
+    tags: [graph]
+  - front: When do you need a graph?
+    back: Many-to-many relationships everywhere, objects of different types in the same database, queries that traverse a number of edges not known in advance.
+    tags: [graph]
+  - front: Variable-length path in Cypher
+    back: WITHIN*0.. means follow the edge zero or more times, like the asterisk of a regex. In SQL you need WITH RECURSIVE and it is much more verbose.
+    tags: [graph, query-languages]
+  - front: Triple store
+    back: Everything is a triple subject, predicate, object. A primitive object is a property, a vertex object is an edge. RDF model, Turtle format, SPARQL language.
+    tags: [graph]
+  - front: Legacy of the Semantic Web
+    back: The project failed, but JSON-LD, biomedical ontologies, Open Graph, Wikidata, Schema.org remain, as do triple stores as an internal model.
+    tags: [graph]
+  - front: Datalog
+    back: Facts as rows and rules that derive virtual tables, composable and recursive like SQL views that call each other. A subset of Prolog. Datomic, CozoDB, LIquid.
+    tags: [query-languages]
+  - front: GraphQL
+    back: Deliberately limited language for OLTP. The client asks for a JSON with the exact shape for the UI. No recursion or arbitrary conditions because the queries come from untrusted sources. Runs on top of any database.
+    tags: [query-languages]
+  - front: Event sourcing
+    back: An append-only log of immutable events is the source of truth. Every state change is an event in the past tense. The read views are derived from the log.
+    tags: [event-sourcing]
+  - front: CQRS
+    back: Command Query Responsibility Segregation. Separate read representations, derived from the one optimized for writing.
+    tags: [event-sourcing]
+  - front: Command vs event
+    back: The command is the user's request and must be validated. If valid it becomes an event, i.e. a fact. The log contains only valid events and whoever builds a view cannot reject them.
+    tags: [event-sourcing]
+  - front: Main advantage of views in event sourcing
+    back: They can be recomputed from scratch by processing the same events in the same order. A bug in the view is fixed by deleting it and rebuilding it with new code.
+    tags: [event-sourcing]
+  - front: Deterministic replay and external data
+    back: If an event requires a variable external datum, such as an exchange rate, it must be included in the event or queried at the historical date. Otherwise the replay gives different results.
+    tags: [event-sourcing]
+  - front: Event sourcing and GDPR
+    back: "Immutable events contain personal data that must be deleted. Solutions: personal data outside the event, or crypto-shredding by encrypting with a key that is later destroyed."
+    tags: [event-sourcing, law]
+  - front: Only non-negotiable requirement of event storage
+    back: All materialized views must process the events in exactly the same order as the log. Hard in a distributed system.
+    tags: [event-sourcing, distributed]
+  - front: DataFrame
+    back: Table manipulated with a sequence of commands on your own copy of the data, not with declarative queries. Pandas, R, Spark, Dask. Bridge to the matrices of ML.
+    tags: [analytics]
+  - front: One-hot encoding
+    back: One column for every possible value of a category, with 1 in the matching column and 0 in the others. Turns categories into numbers for a matrix.
+    tags: [analytics]

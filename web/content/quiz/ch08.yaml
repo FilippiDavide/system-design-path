@@ -1,0 +1,93 @@
+# Model answers for the chapter 8 self-check questions, in the same
+# order as the questions in docs/ch08-transactions.md.
+answers:
+  - section: 1-what-acid-really-promises
+    pdf: 303
+    answer: |
+      Atomicity in ACID says nothing about "indivisible" steps or about concurrency. It is the guarantee that if something goes wrong halfway through (a crash, a network fault, a constraint violation, a full disk) the transaction is aborted and every write it made so far is undone. The application can then safely retry, because there is no half-applied state left behind. "Abortability" names exactly that property.
+
+      What it does not cover is what happens when several transactions run at the same time: that is isolation. A transaction can be perfectly atomic and still suffer dirty reads, lost updates or write skew.
+  - section: 1-what-acid-really-promises
+    pdf: 303
+    answer: |
+      Consistency here means that the application's invariants hold: credits and debits balance, a doctor rota always has someone on call. Those invariants are defined by the application, and only the application knows them. The database can enforce a few simple ones (foreign keys, unique and check constraints), but if the application writes bad data inside a transaction, the database will faithfully commit it.
+
+      Atomicity, isolation and durability are things the database provides; consistency is something the application achieves by using them correctly. The book also notes that "consistency" has at least five different meanings across chapters, so the letter was partly there to make the acronym work.
+  - section: one-object-or-many
+    pdf: 308
+    answer: |
+      No. A multi-put sends several key-value writes in one request, but it does not promise all-or-nothing: some keys can be written and others fail (a shard down, a timeout), and the store does not undo the ones that succeeded. There is no isolation either: a concurrent reader can see some of the keys updated and others not.
+
+      A transaction needs atomicity across all the objects it touches and isolation from other transactions, typically scoped to everything executed on one connection between BEGIN and COMMIT. Single-object atomic operations (increment, compare-and-set) are also not transactions: they are linearizable on one key only.
+  - section: abort-and-retry
+    pdf: 311
+    answer: |
+      First, when the transaction actually committed but the acknowledgment was lost (network fault, client timeout): a blind retry executes it twice unless the application deduplicates, for example with an idempotency key. Second, when the error is due to overload: retrying adds load to a system that is already failing, so attempts must be limited and spaced with exponential backoff. Third, when the error is permanent, such as a constraint violation: the retry will fail in exactly the same way, so only transient errors (deadlock, isolation violation, temporary network problem, failover) deserve a retry.
+
+      Two more from the book: side effects outside the database (sending an email) happen even if the transaction aborts, so they get repeated on retry; and if the client itself crashes during the retry, the data it was trying to write is lost.
+  - section: read-committed
+    pdf: 314
+    answer: |
+      In principle a reader could take the same row-level lock a writer takes, so it would never see an uncommitted value. But a single long write transaction would then block every read of that row, and a long read-only query would block every writer: throughput and response times would collapse because of one slow transaction, which is the opposite of what read committed is for.
+
+      Instead the database keeps two versions of a row that is being written: the old committed value and the new uncommitted one held by the writer. Readers are handed the old value until the write commits, at which point they switch to the new one. Only writers take locks, held until commit or abort, which is what prevents dirty writes.
+  - section: snapshot-isolation
+    pdf: 317
+    answer: |
+      Read skew means seeing parts of the database as of different instants: Aaliyah reads account 1 before the transfer and account 2 after it, every value committed, total 900. On a web page this is a transient glitch: reload and the numbers add up. The inconsistency exists only in that one rendering.
+
+      A backup copies the whole database over hours while writes continue. If different parts come from different instants, the backup contains an inconsistency that will become permanent when it is restored: money that vanished for good. The same holds for long analytic queries and integrity checks, which return nonsense when their input mixes instants. That is why snapshot isolation (each transaction reads a consistent snapshot as of its start) exists.
+  - section: snapshot-isolation
+    pdf: 317
+    answer: |
+      Every transaction has an increasing txid; every row version records inserted_by and deleted_by; an update is a delete plus an insert. When a transaction starts, the database notes which transactions are in progress. A version is visible if the transaction that inserted it had already committed when my transaction started, and the transaction that deleted it (if any) had not. Concretely: ignore writes by transactions in progress at my start (even if they commit later), ignore writes by transactions with a later txid, ignore writes by aborted transactions; everything else is visible.
+
+      A deleted row cannot be removed immediately because some running transaction may have a snapshot older than the delete and must still see it. The row is only marked deleted_by; a garbage collector removes versions once no snapshot can see them any more. Readers never block writers and writers never block readers because nothing is overwritten in place.
+  - section: lost-update
+    pdf: 323
+    answer: |
+      Atomic write operations (UPDATE counters SET value = value + 1, atomic set or JSON operations) are best whenever the logic can be expressed in one statement: the database serializes them on the row, nothing to forget. Explicit locking (SELECT ... FOR UPDATE) is the choice when the decision needs application logic, such as the rules of a game, between the read and the write; the price is that it is easy to forget and can deadlock. Automatic lost-update detection (PostgreSQL repeatable read, Oracle serializable, SQL Server snapshot) is best when you want the read-modify-write to stay in application code and the database to abort the loser: no code change, but not available in InnoDB. Compare-and-set (UPDATE ... WHERE content = 'old', or a version number) is for databases without transactions, as long as the WHERE is evaluated against the current value rather than an old snapshot.
+
+      None of them works with multi-leader or leaderless replication, because there is no single up-to-date copy of the data to lock or compare against. What remains there is to keep conflicting writes as siblings and merge them, which works when operations are commutative (CRDT counters, sets); last-write-wins loses updates by definition.
+  - section: write-skew-and-phantoms
+    pdf: 327
+    answer: |
+      A lost update is two read-modify-write cycles on the same object, where the second overwrites the first. In the doctors' case Aaliyah's transaction updates Aaliyah's row and Bryce's updates Bryce's row: two different objects. No write is overwritten, no row lock is ever contended, and the final state contains both writes exactly as intended. The invariant breaks only because each decision was based on a premise (two doctors on call) that the other transaction's write made false. That is write skew, a generalization of the lost update to writes on different objects after reading the same ones.
+
+      Lost-update detection looks for a write to a row that another transaction modified after my snapshot. Here each transaction writes a row nobody else touched, so there is nothing to detect. Only serializable isolation, or an explicit FOR UPDATE on the rows the decision depends on, catches it.
+  - section: write-skew-and-phantoms
+    pdf: 327
+    answer: |
+      The booking transaction checks for the absence of bookings that overlap the requested slot and then inserts one. SELECT ... FOR UPDATE locks the rows the query returns; when the room is free the query returns no rows, so there is nothing to lock. Two concurrent bookings both see zero overlaps, both insert, both commit: a double booking.
+
+      This is a phantom: a write in one transaction changes the result of a search in another. Snapshot isolation protects read-only queries from phantoms but not read-write transactions. Remedies are materializing the conflict (a pre-created row per room and slot that can be locked FOR UPDATE), or serializable isolation (index-range locks under 2PL, or SSI's detection of outdated premises).
+  - section: two-phase-locking
+    pdf: 337
+    answer: |
+      A predicate lock belongs not to a particular row but to all objects that match a search condition, including rows that do not exist yet. If a transaction has read "bookings for room 123 between 12 and 13", a predicate lock would make any insert that matches that condition wait, which is exactly what stops phantoms and makes 2PL serializable.
+
+      Checking every write against every active predicate is far too expensive. Index-range (next-key) locks approximate the predicate with a larger range on an index: room 123 at any time, or all rooms between 12 and 13. Whoever wants to insert a matching row has to touch the same piece of the index and runs into the lock. Less precise, so a few more false conflicts, but very cheap to check. Without a suitable index, the lock degrades to the whole table.
+  - section: serializable-snapshot-isolation
+    pdf: 341
+    answer: |
+      SSI runs transactions on snapshots and, at commit, checks whether a premise the transaction acted on has become false. Case one, reading a stale MVCC version: transaction 43 ignored an uncommitted write of 42 because of the visibility rules; the database remembers which writes were ignored, and if 42 has committed by the time 43 commits, 43 is aborted. Case two, a write that affects a prior read: 43 writes a row that 42 has read; the database records who read what on an index entry, like an index-range lock that does not block, and the write acts as a tripwire that marks the readers; whichever of the two commits second is aborted.
+
+      It waits until commit because aborting earlier would be premature. If 43 turns out to be read-only there is no write skew to prevent, and 42 might still abort on its own, making the conflict moot. Deferring the check lets long read-only transactions run undisturbed on their snapshot, which is the main thing SSI keeps from snapshot isolation.
+  - section: two-phase-commit
+    pdf: 348
+    answer: |
+      The first point of no return is a participant's "yes" vote. Before answering it writes everything needed to commit to disk and checks its constraints; by voting yes it promises it will be able to commit no matter what, and it gives up the right to abort. The second is the coordinator's decision: it writes commit (or abort) to its own log, the commit point, and from then on the decision is final and must be delivered to every participant, retrying forever if needed.
+
+      Between those two points a participant that has voted yes and not yet heard the decision is in doubt. It cannot abort (another participant may already have committed) and cannot commit (another may have voted no). All it can do is wait for the coordinator, holding its locks, and ask for the outcome of its transaction id when the coordinator comes back; a timeout does not help.
+  - section: heterogeneous-transactions-xa
+    pdf: 352
+    answer: |
+      An in-doubt participant must keep every lock the prepared transaction holds, because releasing them before knowing the decision could break atomicity. Those rows stay locked for as long as the coordinator is down: twenty minutes, or forever if the coordinator's log is lost. Every other transaction that touches those rows blocks behind them, so large parts of the application become unavailable, and restarting the database does not help, since for correctness it must restore the in-doubt state.
+
+      With XA the coordinator is a library inside the application server, logging to that server's local disk; if the application crashes, the participants cannot even contact anybody. Orphaned transactions then have to be resolved by hand, under pressure, during an outage, and "heuristic decisions" that let a participant decide alone are a polite name for probably breaking atomicity. That is why the book treats in-doubt participants as a serious availability problem, not housekeeping.
+  - section: exactly-once-without-distributed-transactions
+    pdf: 358
+    answer: |
+      Every message carries an ID. The consumer begins a database transaction, checks a table of processed message IDs, and if the ID is there acknowledges the message to the broker and drops it. Otherwise it inserts the ID and processes the message in the same transaction, commits, then acknowledges to the broker, and later deletes the ID in a separate transaction. No transaction spans the database and the broker; the broker's redelivery plus the ID table give idempotence.
+
+      Crash before commit: the transaction aborts, the broker redelivers, the message is processed from scratch. Crash after commit but before the acknowledgment: the broker redelivers, the ID is found in the table, the duplicate is dropped and acknowledged. Crash after the acknowledgment but before deleting the ID: an orphaned ID stays in the table, harmless. Two consumers processing the same redelivered message concurrently: the unique constraint on the ID makes one of the inserts fail. This is what Kafka Streams does; database-internal transactions are still useful to scale the pattern across shards.

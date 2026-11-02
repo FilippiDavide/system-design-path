@@ -1,0 +1,75 @@
+# Model answers for the chapter 14 self-check questions, in the same
+# order as the questions in docs/ch14-doing-the-right-thing.md.
+answers:
+  - section: 0-the-starting-point
+    pdf: 609
+    answer: |
+      In the rest of computing a requirement can be written down and checked: either the test passes or it does not. The concepts of ethics require interpretation. There is no list of boxes to tick after which a system is "ethical", because what matters is not the technology itself but how it is used and how it affects people, and that depends on context that keeps changing.
+
+      The chapter therefore describes ethics as a participatory and iterative process: reflecting on the consequences of a system, in dialog with the people it involves, and taking accountability for the results. Guidelines such as the ACM Code of Ethics exist, but they are rarely applied, and applying them is a judgement, not a compliance exercise. The responsibility is ours to bear.
+  - section: 1-predictive-analytics
+    pdf: 610
+    answer: |
+      Organizations that use predictive analytics are cautious for economic reasons: a missed business opportunity costs little, a bad loan or a bad hire costs a lot, so if in doubt they say no. Someone labelled "risky" by an algorithm, accurately or falsely, therefore collects many of those "no" decisions at once: jobs, air travel, insurance, property rental, financial services.
+
+      This systematic exclusion has been called algorithmic prison. The criminal justice system presumes innocence until proven guilty, gives the accused a trial and a right of appeal; the algorithmic version excludes without any proof of guilt and with little chance of appeal, since the person often does not even know which system labelled them or on what basis.
+  - section: bias-and-discrimination
+    pdf: 610
+    answer: |
+      With predictive analytics we do not automate a rule that someone wrote down: we leave the rule to be inferred from the data, and the learned pattern is opaque. If the input carries a systematic bias, the system learns it and amplifies it, and the output then carries the authority of mathematics. That is the sense of "money laundering for bias": biased data goes in, something that looks impartial comes out.
+
+      Laws prohibit discrimination on protected traits such as race or religion, so those fields are left out. But other features are correlated with them: in segregated neighbourhoods the postal code, or the IP address, predicts race. A model trained on past outcomes by postcode learns that postcode Z is "risky" and codifies the discrimination of the past without ever seeing the protected trait. Predictive systems extrapolate from the past; for a better future moral imagination is needed, and only humans have it.
+  - section: responsibility-and-accountability
+    pdf: 611
+    answer: |
+      A traditional credit score asks "how did you behave": it is based on relevant facts about your own borrowing history, the inputs are known, and errors can be corrected, even if the agencies do not make it easy.
+
+      Predictive analytics asks "who is similar to you, and how did they behave". It uses many more inputs, often where you live, which is a proxy for race and class, and it is opaque. The result is a stereotype: the distribution can be correct and the individual case wrong, just as a life expectancy of 80 years says nothing about when you will die. Whoever lands in the wrong bucket, or is judged on erroneous data, has almost no recourse, and nobody can be allowed to evade responsibility for such a decision by blaming the algorithm.
+  - section: feedback-loops
+    pdf: 612
+    answer: |
+      The book's example: an employer uses credit scores to screen candidates. A misfortune makes you miss some payments, so your score drops; with a low score you cannot find work; without income you miss more payments and the score drops further. Each round of the system's output becomes the next round's input, so the prediction creates the behaviour it predicts: a downward spiral of poisonous assumptions camouflaged as mathematical rigor. Recommenders show the same shape in a milder form, as echo chambers; the German gas station pricing algorithms that learned to collude are another case.
+
+      Systems thinking means considering the entire system, people included, rather than the model in isolation: asking how the decisions it makes change the data it will see next, and whether the whole loop amplifies existing differences or combats injustice. Not everything is predictable, but much is, if you look at the loop rather than the single prediction.
+  - section: 2-privacy-and-tracking
+    pdf: 613
+    answer: |
+      If the system stores only what the user explicitly enters, it performs a service for the user: the user is the customer. If it tracks the user's activity as a side effect, the service takes on interests of its own that may conflict with the user's, even if some tracking does serve useful features such as ranking, recommendations and A/B tests.
+
+      The advertising model changes who the customer is. If the service is funded through advertising, the advertisers are the customers and the user takes second place: the service builds detailed profiles, retains them for a long time and uses them for marketing. The user is given a free service and is coaxed into engaging with it as much as possible, so that more data can be collected. The chapter's word for this is surveillance.
+  - section: consent-and-freedom-of-choice
+    pdf: 615
+    answer: |
+      First, the purpose: it is not clear why the tracking is necessary. Click-through data improves ranking, but advertising profiles do not serve the user; they exist because the ads pay. Second, understanding: almost nobody knows what data they provide and how it is processed, privacy policies obscure more than they illuminate, and without understanding there is no meaningful consent. One user's data also says things about other people who agreed to nothing, and the derived datasets that combine everything are precisely what nobody can understand. Third, the relationship is one-way: extraction with no reciprocity and no negotiation, on terms set entirely by the service.
+
+      The GDPR's standard is the contrast: consent must be freely given, specific, informed and unambiguous, withdrawable without detriment, and expressed in clear and plain language; pre-ticked boxes and silence do not count.
+  - section: consent-and-freedom-of-choice
+    pdf: 615
+    answer: |
+      A choice is only free if the alternative is bearable. The services in question are regarded by most people as essential for basic social participation: smartphones, social networks, search. Network effects reinforce this, because the value of the service lies in everyone else being there, and the platforms are deliberately designed to engage, with gambling mechanics.
+
+      Opting out is therefore possible only for the privileged few who have the time, the knowledge, and no social or professional cost to pay. For everyone else the surveillance is inescapable, so "if you don't want it, don't use the service" is not an offer of a free choice.
+  - section: privacy-and-use-of-data
+    pdf: 616
+    answer: |
+      Privacy is not keeping everything secret. It is the freedom to choose what to reveal to whom: what to make public and what to keep to yourself, a decision right that is part of personal autonomy. Someone with a rare medical condition may gladly give their data to researchers, but must be able to choose who accesses it and why, because the same data could cost them insurance or employment.
+
+      With surveillance the right is not eroded, it is transferred to the company. The right to decide what to reveal passes from the individual to the organization, which keeps what it knows secret, because revealing it would be creepy and harm the business, and reveals it only indirectly, as tools for targeting groups. Even without reidentification the user has lost agency over disclosure: the company decides, for profit. This transfer is historically unprecedented, since surveillance used to be expensive and manual and trust relationships such as doctor or attorney were governed by strict ethical and legal constraints.
+  - section: data-as-assets-and-power
+    pdf: 618
+    answer: |
+      Personal data is valuable, so everyone wants it: companies, data brokers that buy and resell it, governments through secret deals, coercion, legal compulsion or theft, the bankruptcy that sells it, the criminals who breach it. Because it is valuable and dangerous at once, it is not an asset but a toxic asset, hazardous material: not the new gold or oil but the new uranium. When collecting it, the benefits must be balanced against the risk of it falling into the wrong hands: criminals, hostile intelligence services, insiders, unscrupulous management, a future regime.
+
+      The time horizon is not today's government but all future governments, because data retained now will still exist when the power structure has changed. Schneier: it is poor civic hygiene to install technologies that could someday facilitate a police state. The ability to scrutinize others while avoiding scrutiny oneself is one of the most important forms of power, and the data accumulated, much of it surreptitiously, gives companies a lot of power over our lives.
+  - section: 3-legislation-and-self-regulation
+    pdf: 620
+    answer: |
+      The GDPR requires that data be collected for specified, explicit and legitimate purposes and be adequate, relevant and limited to what is necessary for those purposes. This is data minimization: decide why you need the data before collecting it, collect only that, do not reuse it for something else, and do not keep it longer than necessary.
+
+      The big data philosophy is the exact opposite: maximize collection, combine datasets, keep everything, and explore it later for purposes nobody had foreseen, because that is where the unexpected value is supposed to come from. That exploratory reuse is precisely what the GDPR forbids. In practice the effect has been some change in advertising, weak enforcement and little change in culture; companies oppose regulation as a hindrance to innovation, and they are partly right, since sharing medical data is risky but could save lives. Balancing the two is difficult, which is why the chapter asks for a culture shift rather than just compliance.
+  - section: 3-legislation-and-self-regulation
+    pdf: 620
+    answer: |
+      Do not retain data forever: purge it as soon as it is no longer needed, and minimize what you collect in the first place. Data you do not have cannot be leaked, stolen, or compelled by a government to be handed over, and it cannot feed a derived dataset nobody can explain.
+
+      This is the first practical step towards the culture shift the chapter asks for: treating users as humans with dignity and agency rather than metrics to be optimized, self-regulating so as to deserve trust, educating users instead of keeping them in the dark, and letting each individual keep control over their own data. Ubiquitous surveillance is not inevitable, and "if we don't consider the societal impact of our work, we're not doing our job".

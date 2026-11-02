@@ -1,0 +1,138 @@
+chapter: 12
+title: Stream processing
+cards:
+  - front: "Evento"
+    back: "Record piccolo, autocontenuto, immutabile, con il timestamp di quando è accaduto. Generato una volta da un producer, processato da più consumer, raggruppato in topic."
+    tags: [streams]
+  - front: "Perché non basta il polling"
+    back: "Più spesso interroghi, più richieste tornano vuote e più cresce l'overhead. Meglio essere notificati. I trigger dei DB sono limitati, da qui i sistemi di messaggistica."
+    tags: [streams]
+  - front: "Le due domande per classificare un sistema di messaggistica"
+    back: "Cosa succede se i producer sono più veloci dei consumer: scartare, accodare o backpressure. Cosa succede se un nodo crasha: si perdono messaggi? La durabilità costa."
+    tags: [messaging]
+  - front: "Limiti del messaging diretto"
+    back: "UDP multicast, ZeroMQ, StatsD, webhook assumono tutti online. Un consumer offline perde messaggi, un producer che crasha perde il buffer dei retry."
+    tags: [messaging]
+  - front: "Broker vs database"
+    back: "Il broker cancella i messaggi dopo la consegna, assume code corte, offre sottoscrizioni per pattern invece di query, e notifica i cambiamenti invece di dare snapshot."
+    tags: [messaging]
+  - front: "Load balancing vs fan-out"
+    back: "Load balancing: ogni messaggio a uno dei consumer, per parallelizzare lavoro costoso. Fan-out: ogni messaggio a tutti i consumer. I consumer group di Kafka li combinano."
+    tags: [messaging]
+  - front: "Perché load balancing più redelivery riordina"
+    back: "Il consumer 2 crasha su m3 mentre il consumer 1 processa m4. m3 viene riconsegnato al consumer 1 dopo m4. Innocuo se i messaggi sono indipendenti, grave con causalità."
+    tags: [messaging]
+  - front: "Dead letter queue"
+    back: "Un messaggio malformato fa crashare ogni consumer e viene riconsegnato all'infinito. La DLQ lo sposta in un'altra coda per sbloccare, con monitoraggio, e un operatore decide."
+    tags: [messaging]
+  - front: "Perché ricevere da un broker classico è distruttivo"
+    back: "L'ack cancella il messaggio. Non puoi rieseguire un consumer e ottenere lo stesso risultato, e un consumer nuovo vede solo i messaggi dopo la sua registrazione."
+    tags: [messaging]
+  - front: "Log-based broker"
+    back: "Storage durevole del DB più notifica del messaging. Il producer appende, il consumer legge in sequenza e in fondo aspetta la notifica. Sharding in partizioni con offset crescenti. Kafka, Kinesis."
+    tags: [log-broker]
+  - front: "Ordine in un log-based broker"
+    back: "Totale dentro una partizione, nessuno fra partizioni. Gli eventi che devono essere ordinati vanno nella stessa partizione, scegliendo la partition key (user ID)."
+    tags: [log-broker]
+  - front: "Limiti del load balancing a log"
+    back: "Partizioni intere ai nodi, lette single-thread: al massimo tanti consumer quante partizioni, e un messaggio lento blocca la sua partizione (head-of-line blocking). Parallelismo = più partizioni."
+    tags: [log-broker]
+  - front: "Quando AMQP/JMS e quando log"
+    back: "Messaggi costosi, parallelismo per messaggio, ordine irrilevante: AMQP/JMS. Throughput alto, messaggi veloci, ordine importante: log."
+    tags: [messaging, log-broker]
+  - front: "Consumer offset"
+    back: "Il broker registra periodicamente l'offset del consumer invece di ack per messaggio. È il log sequence number della replica: broker leader, consumer follower. Dopo un crash si riparte dall'ultimo offset e si rivedono messaggi."
+    tags: [log-broker]
+  - front: "Spazio di un log-based broker"
+    back: "Segmenti, i vecchi cancellati o archiviati: un ring buffer su disco. Un disco da 20 TB a 250 MB/s si riempie in 22 ore al massimo, in pratica giorni o settimane. Tiered o full object storage."
+    tags: [log-broker]
+  - front: "Consumer lento in un log"
+    back: "Buffer grande ma fisso: si monitora il ritardo dalla testa. Un consumer troppo indietro perde messaggi ma non disturba gli altri. Puoi consumare un log di produzione per debug senza rischi."
+    tags: [log-broker]
+  - front: "Replay"
+    back: "Consumare è read-only, l'unico effetto è l'offset, che è del consumer. Riparti da ieri con codice nuovo e scrivi altrove. Rende il log simile al batch."
+    tags: [log-broker]
+  - front: "Dual write"
+    back: "L'app scrive nel DB, poi nell'indice, poi invalida la cache. Due difetti: race senza rilevamento (ordini diversi nei due sistemi, incoerenti per sempre senza errore) e una write che riesce mentre l'altra fallisce."
+    tags: [cdc]
+  - front: "Change data capture"
+    back: "Osservare tutte le scritture di un DB ed estrarle come stream replicabile altrove, nello stesso ordine deciso dal DB. Rende un DB il leader e gli altri sistemi follower. Debezium, Kafka Connect."
+    tags: [cdc]
+  - front: "Snapshot iniziale per CDC"
+    back: "Il log non si tiene per sempre e un indice nuovo serve una copia intera. Serve uno snapshot consistente legato a un offset del log. Debezium usa il watermarking DBLog di Netflix."
+    tags: [cdc]
+  - front: "Log compaction in un broker"
+    back: "Solo l'ultimo valore per chiave, tombstone per cancellare. Lo spazio dipende dal contenuto attuale. Un consumer nuovo parte dall'offset 0 del topic compattato e ottiene una copia completa senza snapshot."
+    tags: [cdc]
+  - front: "CDC vs event sourcing"
+    back: "CDC: app mutabile, log estratto a basso livello, si aggiunge a un DB esistente, eventi con la versione intera quindi compaction possibile. Event sourcing: eventi immutabili di intenzione a livello applicativo, serve tutta la storia, niente compaction."
+    tags: [cdc]
+  - front: "CDC e schemi"
+    back: "Lo schema del DB diventa API pubblica: togliere una colonna rompe consumer che sono servizi di produzione. Data contract per prevenire."
+    tags: [cdc]
+  - front: "Pattern outbox"
+    back: "Una tabella con schema proprio esposta al CDC al posto del modello interno. È un dual write, ma entrambe le scritture stanno nella stessa transazione sullo stesso DB. Costi: trasformazione da mantenere, più scritture."
+    tags: [cdc]
+  - front: "Stato e stream"
+    back: "Lo stato è l'integrale dello stream nel tempo, lo stream è la derivata dello stato. Gray e Reuter: non c'è bisogno fondamentale di un database, il log contiene tutto; il database si tiene per la performance delle letture."
+    tags: [immutability]
+  - front: "Vantaggi degli eventi immutabili"
+    back: "Il ledger dei contabili: errori corretti con compensazioni, mai cancellati. Recovery da codice bacato, audit, e più informazione dello stato: l'articolo messo e tolto dal carrello resta nel log."
+    tags: [immutability]
+  - front: "Più viste dallo stesso log"
+    back: "Una feature nuova è una vista nuova accanto alle vecchie, senza migrazione; poi spegni la vecchia. Normalizzare o denormalizzare diventa quasi irrilevante: le viste di lettura possono essere denormalizzate."
+    tags: [immutability]
+  - front: "Concorrenza con un event log"
+    back: "Un'azione utente diventa una sola scrittura, l'append, facile da rendere atomica. Con log e stato shardati allo stesso modo, un consumer single-thread per shard non ha bisogno di controllo di concorrenza."
+    tags: [immutability]
+  - front: "Limiti dell'immutabilità"
+    back: "Storia che esplode con molti update, compaction critica. GDPR chiede di cancellare davvero: excision, shunning. Cancellare è difficile per le copie ovunque. Crypto-shredding sposta il problema sulle chiavi."
+    tags: [immutability]
+  - front: "Complex event processing"
+    back: "Cercare pattern di eventi come una regex cerca pattern di caratteri. Le query sono permanenti e i dati transitori, l'inverso di un DB. Frode, trading."
+    tags: [processing]
+  - front: "Algoritmi probabilistici nello stream"
+    back: "Bloom filter, HyperLogLog, stime di percentili risparmiano memoria. Sono un'ottimizzazione, non una proprietà dello stream processing, che non è intrinsecamente approssimato."
+    tags: [processing]
+  - front: "Incremental view maintenance"
+    back: "I DB rinfrescano le viste a batch ricalcolando tutto. IVM traduce la query in operatori incrementali e aggiorna solo ciò che cambia. Materialize, RisingWave, ClickHouse, Feldera."
+    tags: [processing]
+  - front: "Event time vs processing time"
+    back: "Event time è il timestamp dell'evento, processing time l'orologio della macchina che processa. Confonderli dà dati falsi: dopo un redeploy che smaltisce il backlog si vede un picco di richieste mai esistito."
+    tags: [time]
+  - front: "Straggler"
+    back: "Evento che arriva dopo che la finestra è stata dichiarata chiusa. Opzioni: ignorarlo contando quanti, o pubblicare una correzione ritirando l'output precedente."
+    tags: [time]
+  - front: "I tre timestamp dell'app mobile"
+    back: "Evento secondo il device, invio secondo il device, ricezione secondo il server. Ricezione meno invio stima l'offset del clock del device, da applicare all'evento."
+    tags: [time]
+  - front: "Tumbling, hopping, sliding, session"
+    back: "Tumbling: fissa, ogni evento in una sola. Hopping: fissa, sovrapposte. Sliding: tutti gli eventi entro un intervallo l'uno dall'altro. Session: senza durata fissa, chiusa dopo inattività dell'utente."
+    tags: [time]
+  - front: "Stream-stream join"
+    back: "Due stream di eventi correlati entro una finestra, come ricerche e click per session ID. Stato: indici per entrambi, emetti al match o alla scadenza. Il click può arrivare prima della ricerca."
+    tags: [joins]
+  - front: "Stream-table join"
+    back: "Arricchire eventi con un DB. Non si interroga il DB remoto: copia locale (hash join) tenuta aggiornata via CDC. Finestra infinita per il changelog, ultima versione vince."
+    tags: [joins]
+  - front: "Table-table join"
+    back: "Due changelog, vista materializzata del join. La timeline social da post e follow. Regola del prodotto: ogni cambio dei post joinato con i follower correnti, ogni cambio dei follow con i post correnti."
+    tags: [joins]
+  - front: "Non determinismo dei join su stream"
+    back: "L'ordine fra stream diversi non è garantito: un evento joinato con il profilo vecchio o nuovo? Rilanciare non dà lo stesso risultato. Slowly changing dimension: un ID per versione, deterministico ma niente compaction."
+    tags: [joins]
+  - front: "Microbatching vs checkpoint"
+    back: "Microbatching (Spark Streaming): blocchi di circa un secondo come mini-batch, tumbling implicita per processing time. Checkpoint (Flink): snapshot periodici innescati da barriere, riparti dall'ultimo e scarti l'output dopo."
+    tags: [fault-tolerance]
+  - front: "Dove finisce l'exactly-once del framework"
+    back: "Appena l'output esce dal framework: DB, broker esterno, email. Il retry duplica l'effetto. Servono atomic commit interno o idempotenza."
+    tags: [fault-tolerance]
+  - front: "Atomic commit nello stream"
+    back: "Tutti gli output ed effetti, incluso l'avanzamento dell'offset, persistono se e solo se l'elaborazione riesce. Transazioni interne al framework, non XA: Dataflow, VoltDB, Kafka. Ammortizzate su più messaggi."
+    tags: [fault-tolerance]
+  - front: "Idempotenza con l'offset"
+    back: "Scrivi nel DB esterno insieme all'offset del messaggio che ha causato l'ultima scrittura: sai se l'update è già applicato. Assunzioni: stessi messaggi nello stesso ordine, elaborazione deterministica, nessun altro scrittore, fencing al failover."
+    tags: [fault-tolerance]
+  - front: "Ricostruire lo stato"
+    back: "Stato locale replicato periodicamente: Flink con snapshot sul DFS, Kafka Streams con un topic compattato come CDC dello stato, VoltDB processando su più nodi. Oppure replay degli input per finestre corte."
+    tags: [fault-tolerance]

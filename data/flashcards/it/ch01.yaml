@@ -1,0 +1,54 @@
+chapter: 1
+title: Trade-off nell'architettura dei sistemi dati
+cards:
+  - front: OLTP
+    back: Point query per chiave, scritture singole, stato attuale, query fisse cablate nel codice, GB-TB.
+    tags: [workload]
+  - front: OLAP
+    back: Aggregati su molti record, bulk import, storia degli eventi, query ad hoc, TB-PB.
+    tags: [workload]
+  - front: ETL vs ELT
+    back: Trasformazione prima del load (ETL) oppure dentro il warehouse dopo il load (ELT).
+    tags: [analytics]
+  - front: HTAP
+    back: Un sistema per OLTP e analisi. Di solito sono due motori dietro una interfaccia. Non sostituisce il warehouse, serve quando la stessa app fa scan massivi e letture puntuali.
+    tags: [analytics]
+  - front: Data lake
+    back: Repository di file grezzi senza schema imposto, su object storage. Sushi principle, raw data is better.
+    tags: [analytics]
+  - front: Reverse ETL
+    back: Output dei sistemi analitici, ad esempio modelli ML, riportati nei sistemi operazionali.
+    tags: [analytics]
+  - front: System of record
+    back: Fonte canonica dei dati, ogni fatto rappresentato una volta sola. In caso di discrepanza vince per definizione.
+    tags: [derived-data]
+  - front: Derived data
+    back: Dati ridondanti e ricostruibili dalla sorgente. Cache, indici, viste materializzate, modelli ML, data warehouse. Esistono per le performance in lettura.
+    tags: [derived-data]
+  - front: Cloud native
+    back: Software costruito sopra servizi cloud di livello inferiore, ad esempio S3, non semplicemente eseguito su una VM in cloud.
+    tags: [cloud]
+  - front: Separazione storage/compute
+    back: Il disco locale della VM è una cache effimera. I dati durevoli stanno in servizi di storage dedicati. Analizzare significa spostare dati sulla rete verso il compute.
+    tags: [cloud]
+  - front: Multitenancy
+    back: Più clienti sullo stesso hardware e lo stesso servizio. Efficiente per il provider, richiede isolamento di performance e sicurezza.
+    tags: [cloud]
+  - front: Capacity planning nel cloud
+    back: Diventa financial planning. Performance optimization diventa cost optimization. Restano le quote del provider da conoscere in anticipo.
+    tags: [cloud, operations]
+  - front: Fallimento parziale
+    back: Una chiamata remota va in timeout senza sapere se è stata eseguita. Il retry non è automaticamente sicuro.
+    tags: [distributed]
+  - front: Observability
+    back: Raccolta di metriche ed eventi interrogabili per diagnosticare sistemi distribuiti. Tracing con OpenTelemetry, Zipkin, Jaeger.
+    tags: [distributed, operations]
+  - front: Microservizi
+    back: Un servizio, uno scopo, una API, un team, un database proprio. Soluzione tecnica a un problema di coordinamento fra persone. Pochi team, niente microservizi.
+    tags: [distributed]
+  - front: Serverless / FaaS
+    back: Metered billing applicato all'esecuzione del codice. Limiti di tempo per funzione, runtime vincolati, cold start.
+    tags: [cloud]
+  - front: Data minimization
+    back: Raccogliere solo per uno scopo esplicito, non riusare, non conservare oltre il necessario. Datensparsamkeit. Opposto alla filosofia big data, allineato al GDPR.
+    tags: [law]

@@ -1,0 +1,87 @@
+chapter: 2
+title: Defining Nonfunctional Requirements
+cards:
+  - front: Fan-out
+    back: Factor by which one initial request generates downstream requests. In the social network, one post generates one write for every follower.
+    tags: [performance, case-study]
+  - front: Materialized view
+    back: Result of a query that is precomputed and updated on every write. Pays on write to gain on read.
+    tags: [performance, derived-data]
+  - front: How do you handle a post by a celebrity with millions of followers?
+    back: No fan-out. Celebrity posts are stored separately and merged into the timeline at read time (hybrid push + pull).
+    tags: [case-study]
+  - front: Response time vs throughput
+    back: Response time is the time as seen by the user, in seconds. Throughput is requests or bytes per second and determines how many servers you need, hence the cost.
+    tags: [performance]
+  - front: Why does response time explode near maximum capacity?
+    back: Because of queueing. Requests wait for the ones already being processed and the queueing delay grows sharply as you approach the hardware limit.
+    tags: [performance]
+  - front: Metastable failure
+    back: An overloaded system that stays overloaded even when the load returns to normal, typically because of a retry storm. It is only resolved by a restart or reset.
+    tags: [reliability, performance]
+  - front: Countermeasures against a retry storm
+    back: "Client: exponential backoff with jitter, circuit breaker, token bucket. Server: load shedding, backpressure."
+    tags: [reliability, performance]
+  - front: Response time, service time, queueing delay, latency
+    back: Response time is the total as seen by the client. Service time is the actual processing. Queueing delay is the wait in a queue. Latency is the time during which the request is not being processed, for example the trip over the network.
+    tags: [performance]
+  - front: Head-of-line blocking
+    back: A few slow requests hold up the ones behind them in the queue, because the server only processes in parallel as much as its cores allow. That is why you measure on the client side.
+    tags: [performance]
+  - front: Why percentiles and not the average?
+    back: Response time is a distribution. The average doesn't tell you how many users waited how long. p50 is the typical experience, p99 and p999 measure the outliers.
+    tags: [performance]
+  - front: Tail latency amplification
+    back: A user request that calls N backends in parallel waits for the slowest one. Even with few slow backends, the share of slow user requests grows with N.
+    tags: [performance]
+  - front: SLO vs SLA
+    back: SLO is the measurable target (p99 under 1 s, 99.9% without errors). SLA is the contract that specifies what happens if the SLO is not met.
+    tags: [performance]
+  - front: How do you aggregate percentiles from several machines?
+    back: You do not average percentiles, it is meaningless. You add the histograms. Libraries such as HdrHistogram, t-digest, DDSketch.
+    tags: [performance]
+  - front: Fault vs failure
+    back: A fault is a component that stops working. A failure is the system as a whole not meeting its SLO. A failed disk is a failure of the disk and a fault of the system that contains it.
+    tags: [reliability]
+  - front: Single point of failure
+    back: A component whose fault becomes a failure of the whole system because it is not tolerated.
+    tags: [reliability]
+  - front: Fault injection / chaos engineering
+    back: Deliberately triggering random faults in production to exercise the error-handling code, where many critical bugs hide.
+    tags: [reliability]
+  - front: Hardware faults vs software faults
+    back: Hardware faults are frequent but mostly independent. Software faults are rare but strongly correlated because all nodes run the same code, so they go down together.
+    tags: [reliability]
+  - front: Availability zone
+    back: Group of physically co-located resources that tend to fail together. Cloud fault tolerance spreads across different zones.
+    tags: [reliability]
+  - front: Rolling upgrade
+    back: Upgrading one node at a time in a fault-tolerant system, without stopping the service.
+    tags: [reliability, operations]
+  - front: Blameless postmortem
+    back: After an incident everything is told without fear of punishment. Human error is a symptom of the sociotechnical system, not the cause.
+    tags: [reliability, operations]
+  - front: Leading cause of outages in large services
+    back: Configuration changes made by operators. Hardware accounts for only 10-25%.
+    tags: [reliability]
+  - front: Linear scalability
+    back: Double the resources handle double the load with unchanged performance. Rare. Usually the cost grows faster than linearly.
+    tags: [scalability]
+  - front: Shared memory, shared disk, shared nothing
+    back: Shared memory is a bigger machine (scale up). Shared disk is independent nodes on shared NAS/SAN storage, limited by locking and contention. Shared nothing is independent nodes coordinated over the network (scale out), requires sharding.
+    tags: [scalability]
+  - front: The order-of-magnitude rule
+    back: An architecture holds up for about 10x the load it was designed for. Beyond that you rethink it. It is not worth planning further ahead.
+    tags: [scalability]
+  - front: General principle of scalability
+    back: Break the system into components that operate independently. It is the basis of microservices, sharding, stream processing, shared nothing.
+    tags: [scalability]
+  - front: The three properties of maintainability
+    back: Operability (easy to keep running), simplicity (easy to understand), evolvability (easy to change).
+    tags: [maintainability]
+  - front: Why is more automation not always more operability?
+    back: The cases automation cannot handle are the most complex ones and require more skilled operators. An automated system that goes wrong is harder to diagnose.
+    tags: [maintainability, operations]
+  - front: Irreversibility
+    back: The biggest obstacle to change in large systems. If you cannot go back, the stakes are higher. Minimizing it improves flexibility.
+    tags: [maintainability]

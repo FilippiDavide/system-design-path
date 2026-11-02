@@ -1,0 +1,91 @@
+# Model answers for the chapter 6 self-check questions, in the same
+# order as the questions in docs/ch06-replication.md.
+answers:
+  - section: synchronous-or-asynchronous
+    pdf: 224
+    answer: |
+      With synchronous replication the leader does not acknowledge a write until the follower has confirmed it. If every follower were synchronous, a single follower that is down, slow or cut off by the network would stop the leader from acknowledging anything: all writes block, and the more followers you have the more likely that is. Replication was supposed to improve availability and instead it reduces it.
+
+      Semi-synchronous replication makes exactly one follower synchronous and leaves the others asynchronous. Every acknowledged write is then guaranteed to exist on at least two nodes (leader plus the synchronous follower), and if that follower becomes slow or unavailable one of the asynchronous ones is promoted to take its place. A variant waits for a majority of replicas (for example 3 out of 5), which is a quorum and reappears in ch. 10.
+  - section: adding-a-follower-without-stopping
+    pdf: 225
+    answer: |
+      Copying the data files while the leader keeps writing gives an inconsistent copy, and locking the database defeats the point of adding replicas. Instead you take a consistent snapshot of the leader without locking (the same facility used for backups), copy it to the new node, and then let the new follower ask the leader for every change since the snapshot.
+
+      The extra ingredient is that the snapshot must be associated with a precise position in the replication log (log sequence number in PostgreSQL, binlog coordinates or GTID in MySQL). The follower replays the backlog from that position until it has caught up and then follows the live log. Snapshots and archived log segments kept on object storage (WAL-G, Litestream) serve both backups and this bootstrap.
+  - section: when-a-node-goes-down
+    pdf: 228
+    answer: |
+      Several things, all of which appear in the chapter's table. First, with asynchronous replication the promoted follower may be behind the old leader, so writes that the old leader had acknowledged are discarded: they were confirmed to clients but are not durable. Coordinating that loss with external systems is worse still: GitHub promoted an out-of-date follower that reused autoincrement primary keys already known to Redis, and private data was shown to the wrong users.
+
+      Second, split brain: the old leader does not realise it has been deposed, both nodes accept writes and data is lost or corrupted; fencing one of them may shut down both or arrive too late. Third, the timeout that declares the leader dead is a guess: too long means slow recovery, too short means spurious failovers under a load spike or a network glitch, which make a bad situation worse. This is why many teams keep failover manual even when the software could automate it, and why the rule is to promote the most up-to-date follower.
+  - section: what-the-replication-log-looks-like
+    pdf: 230
+    answer: |
+      WAL shipping sends the same write-ahead log the storage engine already produces: a description of which bytes changed in which disk blocks. That ties the log to the storage engine's on-disk format, so leader and followers must run the same version of the software; an upgrade needs downtime.
+
+      A logical (row-based) log describes changes at the level of rows: the new values for an insert, the key for a delete, the key plus the changed columns for an update, plus a commit marker. It is decoupled from the physical layout, so a follower can run a newer version than the leader. You upgrade the followers first, promote an upgraded follower to leader, and no downtime is needed. The same decoupling makes the log readable by external systems, which is change data capture (ch. 12).
+  - section: read-your-writes
+    pdf: 234
+    answer: |
+      The write went to the leader and the page reload was served by a follower that had not yet applied it, so the user's own write seems lost. The missing guarantee is read-after-write (read-your-writes) consistency: a user always sees their own writes, though not necessarily other people's.
+
+      Two ways to provide it: read anything the user may have modified themselves (their own profile, their own comments) from the leader and everything else from followers, which requires knowing what is "own" without querying; or have the client remember the logical timestamp (log position) of its last write and let only a replica that has reached that position answer, or wait until it has. Other options: read from the leader for one minute after a write, or exclude followers whose lag is above a threshold. Multiple devices of the same user complicate things because the timestamp must be shared centrally.
+  - section: monotonic-reads
+    pdf: 236
+    answer: |
+      Monotonic reads promise that a sequence of reads by one user never goes backwards in time: having seen a value, the user will not later see an older state. If every read of that user goes to the same replica (chosen by a hash of the user ID), each read is at least as recent as the previous one because that replica only moves forward, so the anomaly cannot happen.
+
+      It does not give read-your-writes because writes go to the leader, not to "the user's" replica. Right after a write the user's replica may still be lagging, so the user reads from it and does not see their own write; monotonicity is preserved (they had not seen it before either), but read-after-write is violated. Read-your-writes needs a link between the write's position and the read, which sticking to one replica does not provide.
+  - section: geographically-distributed
+    pdf: 240
+    answer: |
+      A uniqueness constraint needs someone who sees all the writes before deciding. With a single leader that is the leader: it serialises the two registrations and rejects the second one. With multi-leader replication two users can claim the same username at the same moment on two different leaders; each leader checks its local state, finds the name free, and accepts. Each write is individually valid but together they violate the constraint, and the conflict is only discovered later during asynchronous replication, when both users have already been told they succeeded.
+
+      The same reasoning applies to a balance that must never go negative. It is a fundamental limitation of asynchronous multi-leader systems, not a bug in a particular product: strong constraints require a single point of decision or a consensus protocol (ch. 8 and 10).
+  - section: conflicting-writes
+    pdf: 246
+    answer: |
+      Last write wins attaches a timestamp to every write and, when two concurrent writes reach a replica, keeps the one with the higher timestamp and silently discards the other. The discarded write had been acknowledged to its client, so from the client's point of view a successful write disappeared: the system converges, but at the cost of data loss. It is only acceptable when loss is harmless, for instance if keys are unique and never updated.
+
+      The name is misleading because concurrent writes have no "last": neither knew about the other, so there is no meaningful order between them. The timestamp order is an arbitrary tie-break, not a temporal one. With physical clocks it is also fragile: a node whose clock runs ahead wins every conflict; a logical clock (ch. 10) is needed.
+  - section: conflicting-writes
+    pdf: 246
+    answer: |
+      Amazon's shopping cart kept concurrent versions of the cart as siblings and merged them with a set union. If one replica had removed an item while another still held the old cart, the union put the removed item back: customers saw items reappear that they had deleted. The merge was "safe" in the sense that nothing was lost, but it did not respect what the users had done.
+
+      A CRDT for sets records not just the members but each addition (with a unique tag) and each removal of what was observed. Merging two replicas then keeps an element only if some add of it has not been removed; a removal on one replica is not undone by the other replica's stale copy. Likewise a counter CRDT keeps one slot per replica and sums them. All replicas that have seen the same operations end up in the same state regardless of order: strong eventual consistency.
+  - section: conflicting-writes
+    pdf: 246
+    answer: |
+      Both start from "ice"; one replica inserts "n" at the front, the other appends "!" at the end, and both must end at "nice!".
+
+      Operational transformation describes edits by index: insert "n" at 0, insert "!" at 3. If the second replica first applies its own "!" at 3 and then receives "n at 0", fine; but applying "! at 3" after "n at 0" has been applied would give "nic!e". OT therefore transforms the index of an incoming operation against the concurrent operations already applied, turning 3 into 4. Google Docs and ShareDB work this way.
+
+      A CRDT gives every character a unique immutable identifier and expresses an insertion relative to an existing character ("after character 3A"). Positions never shift, so no transformation is needed; concurrent insertions at the same spot are ordered by their IDs. Automerge, Yjs, Riak and others use this approach.
+  - section: quorums
+    pdf: 255
+    answer: |
+      With n = 5 the write waited for 3 confirmations and the read waits for 3 answers. Any set of 3 nodes and any other set of 3 nodes out of 5 must share at least one node (3 + 3 > 5), so at least one of the replicas that answers the read holds the latest confirmed write, and the client keeps the value with the highest version number.
+
+      Cases where the read still misses it, from the "limitations of quorums" section: a node that holds the new value crashes and is restored from a replica with the old value, so fewer than w copies of the new value remain; during rebalancing the nodes disagree about which n nodes hold the key, so the two sets no longer overlap; a read concurrent with a write may or may not see it, and a later read can see the old value after an earlier one saw the new; a write that reached fewer than w nodes is reported as failed but is not rolled back, so it may show up anyway; and with system-clock timestamps for ordering (Cassandra, ScyllaDB) a fast clock silently discards writes.
+  - section: writing-when-a-node-is-down
+    pdf: 253
+    answer: |
+      Read repair: a client that reads from several replicas in parallel notices that one returned a stale version and writes the newer value back to it. It repairs values that are frequently read, and does nothing for values nobody reads.
+
+      Hinted handoff: when a replica is unreachable, another node keeps the writes meant for it as hints and delivers them when it comes back. It covers writes to a known-down node even if the values are never read, but only for the period it tracked.
+
+      Anti-entropy: a background process continuously compares replicas and copies missing data from one to another, in no particular order and with some delay. It eventually covers everything, including values that are rarely read and gaps that hinted handoff missed, but slowly.
+  - section: detecting-concurrent-writes
+    pdf: 261
+    answer: |
+      A happens-before B if B knows about A: B was issued by someone who had seen A, depends on A, or builds on A, so B's effect must be applied after A's. Two operations are concurrent if neither happens-before the other: each was produced without any knowledge of the other, so there is no causal dependency between them.
+
+      Clocks do not enter the definition. Two writes can be issued far apart yet be concurrent if the network kept one client from seeing the other's write, and two writes issued close together are ordered if the second one was based on the first. For every pair there are three cases: A before B, B before A, or concurrent; the first two let the later write overwrite, the third is a conflict that must be merged or kept as siblings.
+  - section: detecting-concurrent-writes
+    pdf: 261
+    answer: |
+      With one replica a single version number per key is enough: the client reads the current version, merges the siblings it received, and writes back carrying that version; the server overwrites what that version covers and keeps as siblings any values with a higher version, which must be concurrent. With several replicas and no leader, each replica assigns version numbers independently, so a version from replica 1 says nothing about what replica 2 has seen: one number cannot express "I have seen replica 1 up to 3 and replica 2 up to 5".
+
+      A version vector keeps one version per replica and per key. Each replica increments its own entry and records the highest entry it has seen from the others. Comparing two vectors tells whether one state includes the other (overwrite) or whether they are concurrent (siblings). The vector travels to the client on read and back on write (Riak's causal context, a dotted version vector), which makes it safe to read from one replica and write to another: at worst siblings appear, writes are never lost.

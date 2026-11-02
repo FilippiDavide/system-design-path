@@ -1,0 +1,89 @@
+# Model answers for the chapter 9 self-check questions, in the same
+# order as the questions in docs/ch09-trouble-with-distributed-systems.md.
+answers:
+  - section: 2-unreliable-networks
+    pdf: 371
+    answer: |
+      When a request gets no response, any of these may have happened: the request was lost on the way (dropped by a full switch queue, or the cable is unplugged); the request is sitting in a queue and will be delivered later; the remote node has crashed or been powered off; the remote node is paused (a stop-the-world garbage collection, a suspended VM) and will process the request later; the node processed the request and the response was lost; or the response was processed and is delayed in a queue on the way back.
+
+      What they have in common is that the client cannot tell them apart. The only fact available is "I have no response yet". A timeout turns that into a decision, but it still does not say whether the node ever received the request, let alone whether it acted on it. This is the asynchronous packet network: no guarantee about when a message arrives, nor whether it arrives.
+  - section: tcp-doesnt-solve-it
+    pdf: 372
+    answer: |
+      A TCP acknowledgement is produced by the kernel of the receiving machine when the bytes land in the socket buffer. It says nothing about whether the application has read those bytes, let alone whether it executed the request: the process could crash right after the ack, be paused by GC, or be busy for a minute. TCP's guarantees live at the connection level, not at the level of your request.
+
+      TCP also cannot fix the deeper problem. If an ack does not arrive, it does not know whether the packet or the ack was lost; after a reconnect its deduplication no longer applies and data can be duplicated; a connection closed with an error does not say how much the remote side processed. To know that a request succeeded you need a positive response from the application itself.
+  - section: how-long-the-timeout
+    pdf: 376
+    answer: |
+      Almost all the variability comes from queueing, not from the speed of light or the wire. The book lists several queues. In the network switch, when several nodes send to the same destination at once, packets wait in the switch's buffer, and when the buffer is full they are dropped even on a perfectly healthy network. In the operating system of the receiver, if all CPUs are busy, the request waits before the process gets to run it. In the hypervisor, when the VM is descheduled, the packet is buffered for tens of milliseconds. On the sender, TCP's flow and congestion control hold the packet back before it even leaves.
+
+      A TCP retransmission after a loss shows up as yet more delay. Because queue lengths depend on what everyone else is doing (the noisy neighbour in a multitenant cloud), the delay has no upper bound and the round-trip distribution has a long tail. That is why the timeout is chosen experimentally from measured round trips, ideally adapted continuously, as the Phi Accrual failure detector does.
+  - section: why-not-make-the-network-reliable
+    pdf: 379
+    answer: |
+      A fixed-line phone call opens a circuit: a fixed amount of bandwidth (16 bits every 250 microseconds) is reserved along the whole path for the duration of the call. No other call can use that slot, so there are no queues and the delay is bounded. This is a synchronous network.
+
+      Ethernet and IP are packet-switched: nothing is reserved, packets compete for links and sit in queues, so the delay is unbounded. The reason is economic, not physical. Packet switching is optimized for bursty traffic (a web page, a file transfer) that does not have a fixed bandwidth need and just wants to finish quickly: with circuits you would have to guess the bandwidth, and a wire of 10,000 calls gives each one the same slice even when only one call is active, which wastes utilization. Dynamic sharing maximizes utilization and makes bytes cheaper at the price of queueing delay. Latency guarantees cost utilization; hybrids (ATM, InfiniBand, QoS) exist but public clouds do not offer them. So there is no "right" timeout, by choice rather than by law of nature.
+  - section: two-clocks
+    pdf: 383
+    answer: |
+      Use the monotonic clock (CLOCK_MONOTONIC, System.nanoTime) for a timeout, and for any duration: response time, p99, how long a request has been waiting. It is a counter that only moves forward; its absolute value is meaningless, but the difference between two readings on the same machine is a reliable elapsed time. NTP may speed it up or slow it down by at most 0.05%, never make it jump.
+
+      The time-of-day clock (CLOCK_REALTIME, currentTimeMillis) gives calendar time and is kept roughly in sync with NTP, which means it can jump: forward or backward when NTP resets a clock that drifted too far, at a leap second, or after a VM is resumed. A duration computed from two time-of-day readings across such a jump can come out negative or absurdly large, so a timeout would fire immediately or never. Time-of-day is for points in time; across machines it is comparable only approximately.
+  - section: how-wrong-they-are
+    pdf: 384
+    answer: |
+      A broken CPU, a faulty network card or a dead disk fail loudly: the machine crashes or stops responding, and the fault is noticed and routed around. A quartz that drifts, a misconfigured NTP client behind a firewall, a leap second applied twice, a VM resumed with a stale clock: all of these keep the machine working and apparently healthy. The clock is simply wrong, and nothing in the system complains.
+
+      The damage is therefore subtle and silent: timestamps misorder writes, LWW drops a causally later update, a lease looks valid when it has expired, data is lost with no error anywhere. A wrong result is worse than no result. Hence the advice: if you depend on synchronized clocks, treat clock offset as a fault to monitor, and evict nodes whose clock drifts too far from the others.
+  - section: timestamps-for-ordering-lww
+    pdf: 386
+    answer: |
+      Client A writes x = 1 on node 1, whose clock reads 42.004. Client B then reads that value and increments it, writing x = 2 on node 3, whose clock reads 42.003: node 3's clock is less than 3 ms behind node 1's, better than NTP achieves in practice. Both writes are replicated to node 2, which resolves conflicts with last write wins by keeping the higher timestamp. 42.004 beats 42.003, so node 2 keeps x = 1 and discards x = 2.
+
+      The increment is causally later (B read A's write before producing its own), yet it is lost, silently, with no error. Physical timestamps cannot capture causality because the clock error would have to be far smaller than the network delay between the nodes, which is impossible. Other costs: writes vanish until the skew elapses, sequential and concurrent writes cannot be told apart (version vectors are needed for that), and equal timestamps need a random tiebreaker. For ordering you need logical clocks, counters that reflect causality, not physical time.
+  - section: time-as-an-interval
+    pdf: 389
+    answer: |
+      A clock reading is not a point but a confidence interval: the drift since the last sync plus the server's own uncertainty plus the network round trip. Spanner's TrueTime API returns exactly that, [earliest, latest]. Spanner uses it to assign commit timestamps for global snapshot isolation: if two intervals do not overlap, the order of the two transactions is certain. To guarantee that, after choosing a commit timestamp Spanner deliberately waits for the width of the interval before committing a read/write transaction, so that any transaction that starts afterwards gets an interval that is entirely later and disjoint.
+
+      Atomic clocks and GPS receivers in every datacenter are there only to keep the interval narrow (about 7 ms), which keeps the commit wait short. The correctness comes from the interval and the wait, not from the hardware: with ordinary NTP the same algorithm would be correct, only slower because the wait would be longer. YugabyteDB does the same with Amazon's ClockBound.
+  - section: process-pauses
+    pdf: 390
+    answer: |
+      The lease loop reads: "if the lease has less than 10 seconds left, renew it; if it is still valid, process the request". Flaw one: the expiry time was computed on another machine (the lock service) with its clock, and is compared with the local time-of-day clock; if the two differ by more than a few seconds the check is meaningless. Flaw two: the code assumes that almost no time passes between the check and process(). If the thread stops for 15 seconds right there, the lease has expired, another node holds it, and this one processes anyway, convinced it is still the leader.
+
+      Realistic causes of such a pause: a stop-the-world garbage collection (sometimes minutes); a virtual machine suspended or live-migrated; a laptop lid closed; context switches and steal time on a heavily loaded machine; synchronous disk I/O, including the implicit kind such as the Java classloader; page faults and thrashing when memory is scarce; a SIGSTOP sent by mistake. In every case the thread resumes without knowing it stopped.
+  - section: the-majority-rules
+    pdf: 396
+    answer: |
+      A node cannot trust its own judgment because its view of the world is only what it can infer from messages it receives or fails to receive. It may be alive and working while its replies are all lost, so everyone else declares it dead; it may notice that nobody hears it and be unable to do anything about it; it may wake from a long pause and not know that a minute has passed and that it has already been replaced. In each case "I feel alive" is true and irrelevant.
+
+      What replaces it is a quorum: decisions, including the decision that a node is dead, are made by voting among nodes, and the usual quorum is an absolute majority, because only one majority can exist at any one time. If a majority declares a node dead, it must step down even if it feels perfectly healthy. This is the basis of the consensus algorithms in chapter 10.
+  - section: locks-leases-and-zombies
+    pdf: 397
+    answer: |
+      Way one: client 1 holds the lease on the file, pauses (GC), the lease expires, client 2 obtains it and writes, then client 1 wakes up still believing it holds the lease and writes too, overwriting client 2's data. Way two, with no pause: client 1 sends a write and crashes, the write sits in the network for a minute and arrives after client 2 has taken the lease and written. In both cases a former leaseholder that does not know it has lost the lease, a zombie, corrupts the file. Shutting zombies down (STONITH) does not help against the delayed write.
+
+      The fencing token stops both. Every grant of the lease carries a strictly increasing number; every write to the storage includes the token of the lease under which it was made; the storage rejects any write whose token is lower than one it has already seen. Client 2, holding token 34, writes immediately; client 1's late write with token 33, whether it comes from a woken zombie or from a delayed packet, is refused. The number has many names (sequencer in Chubby, epoch in Kafka, term in Raft, zxid in ZooKeeper); a conditional write on a single storage service does the same job.
+  - section: byzantine
+    pdf: 401
+    answer: |
+      Byzantine fault tolerance protects against nodes that lie or behave arbitrarily, by requiring agreement among more than two thirds of the nodes before anything is accepted. It is built on the assumption that faults are independent: a traitor here, a corrupted memory there. A software bug is the opposite: the same code runs on every node, so every node has the same bug and they all fail in the same way at the same time. Agreement among them is unanimous and wrong, so the extra votes buy nothing.
+
+      To tolerate bugs with a Byzantine protocol you would need several independent implementations (the book says four) so that a bug in one is outvoted by the others, which is impractical. The same holds for attackers who compromise all nodes the same way. In a datacenter the nodes are yours, so the practical defenses are authentication, cryptography, firewalls and, for web applications, input validation, plus cheap guards against weak forms of lying: application-level checksums, input sanitization, NTP with several servers and outlier rejection.
+  - section: safety-and-liveness
+    pdf: 406
+    answer: |
+      A safety property says "nothing bad happens": if it is violated you can point at the exact moment it was broken (the second token with the same number, the write that was lost), and the damage is irreversible. It must hold always, in every execution of the model, even if every node crashes. A liveness property says "something good eventually happens": it may not hold at this moment, but there is still hope it will; it almost always contains the word "eventually", and it may be conditional ("if a majority of nodes stays up and the network recovers, every request eventually gets a response").
+
+      For fencing tokens, uniqueness and monotonic sequence are safety; availability (whoever asks and does not crash eventually receives a token) is liveness. Eventual consistency is a liveness property: it promises that replicas will converge at some point, not that they agree now. The practical rule is that safety must be guaranteed unconditionally, while liveness may be allowed to depend on conditions.
+  - section: 5-how-to-verify
+    pdf: 408
+    answer: |
+      Model checking (TLA+, FizzBee) takes a simplified model of the algorithm, not the code, and systematically explores its reachable states looking for a violation of the stated properties; it found data loss in Viewstamped Replication. Limit: the state space is infinite, so exploration is bounded, and the model can diverge from the implementation, so a correct model does not prove the code correct.
+
+      Fault injection (Jepsen, Chaos Monkey) runs the real system and inflicts real faults: killing processes, unmounting disks, firewalling nodes, while checking invariants. It tests the actual implementation with its actual bugs. Limit: tests are awkward to write, and a failure is hard to reproduce exactly because timing is not under control.
+
+      Deterministic simulation testing (FoundationDB, TigerBeetle, Antithesis) runs the real code but replaces the network, I/O, clock and randomness with a simulator that controls every one of them, so each run is reproducible from a seed and can run faster than real time, exploring rare interleavings. Limit: every source of nondeterminism must be captured; anything left out, from thread scheduling to hash-table iteration order, breaks reproducibility. The three complement each other and none replaces a formal proof of the algorithm.

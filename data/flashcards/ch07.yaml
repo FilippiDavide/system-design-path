@@ -1,0 +1,66 @@
+chapter: 7
+title: Sharding
+cards:
+  - front: "Sharding vs replication"
+    back: "Replication copies the same data onto several nodes. Sharding splits the dataset into parts, each on different nodes. Each record lives in only one shard, which is in turn replicated."
+    tags: [sharding]
+  - front: "When sharding is needed"
+    back: "When data or write throughput exceed a single machine. If the problem is reads, read scaling with followers is enough. It is heavy: partition key hard to change, joins and secondary indexes complicated, distributed transactions."
+    tags: [sharding]
+  - front: "Partitioning in PostgreSQL vs sharding"
+    back: "In PostgreSQL partitioning splits a table into several files on the same machine. Sharding splits across several machines. Elsewhere the terms are synonyms. No relation to network partitions."
+    tags: [sharding]
+  - front: "Sharding for multitenancy"
+    back: "One shard per tenant or group of tenants. Resource and permission isolation, cell-based architecture, per-tenant backups, easy GDPR, data residency, gradual schema rollout. Challenges: tenants too large, too many small tenants, cross-tenant features."
+    tags: [sharding, multitenancy]
+  - front: "Skew, hot spot, hot key"
+    back: "Skew: non-uniform load across shards. Hot spot: one overloaded shard. Hot key: a single overloaded key, like the celebrity on a social network."
+    tags: [sharding]
+  - front: "Sharding by key range"
+    back: "Each shard gets a contiguous range of keys, with boundaries adapted to the data. Keys sorted within the shard: efficient range queries. Risk of hot spots on nearby keys, such as timestamps."
+    tags: [sharding]
+  - front: "Hot spot with timestamp key"
+    back: "All of today's writes go to the current month's shard. Remedy: prefix the sensor ID to the timestamp. Price: one range query per sensor instead of a single one."
+    tags: [sharding]
+  - front: "Rebalancing with key range"
+    back: "Initial pre-split if the distribution is known. Then split of a shard that exceeds a size or throughput threshold, merge of shrunken shards. Splitting is expensive and hits the shard already under load."
+    tags: [sharding, rebalancing]
+  - front: "Why hash mod N is wrong"
+    back: "When the number of nodes changes, almost all keys change node. Rebalancing with a huge and pointless movement of data."
+    tags: [sharding, rebalancing]
+  - front: "Fixed number of shards"
+    back: "Many more shards than nodes, for example 1,000 on 10. The key-to-shard map never changes, only shard-to-node. A new node receives whole shards. Limit: you cannot have more nodes than shards, and changing the number is an expensive resharding."
+    tags: [sharding, rebalancing]
+  - front: "Sharding by hash range"
+    back: "Each shard gets a range of hash values. Similar keys end up scattered, no hot spots from proximity, and shards split when they grow. Range queries inefficient on the partition key, but efficient on the subsequent columns within the shard."
+    tags: [sharding]
+  - front: "Consistent hashing"
+    back: "A hash that maps keys onto a given number of shards with roughly equal load and, when the number changes, the minimum number of keys moved. Consistent has nothing to do with replica consistency or ACID."
+    tags: [sharding]
+  - front: "How Cassandra splits the hash space"
+    back: "Many ranges per node, 16 by default, with random boundaries. Imbalances average out statistically. A new node receives pieces of ranges from several nodes."
+    tags: [sharding]
+  - front: "Does a uniform hash guarantee uniform load?"
+    back: "No. The load can concentrate on a hot key. Remedies: a shard dedicated to the key, or random digits appended to the key to spread the writes, at the price of reads across all the variants and bookkeeping of the split keys."
+    tags: [sharding]
+  - front: "Automatic rebalancing and failure detection"
+    back: "A slow node is believed dead, the cluster moves load onto the others which in turn slow down and are believed dead: cascading failure. That is why many keep a human in the loop or have the system propose and the administrator confirm."
+    tags: [rebalancing, reliability]
+  - front: "Request routing: three approaches"
+    back: "The client contacts any node, which forwards; a shard-aware routing tier routes; the client knows the map and connects directly."
+    tags: [routing]
+  - front: "Who keeps the shard-to-node map"
+    back: "A coordination service with consensus: ZooKeeper (HBase, SolrCloud), etcd (Kubernetes), MongoDB config servers, built-in Raft (Kafka, TiDB, ScyllaDB). Riak uses gossip, weaker, with split brain possible."
+    tags: [routing]
+  - front: "Local secondary index"
+    back: "Each shard indexes only its own records. A write touches a single shard. A read without the partition key goes to all shards: tail latency amplification and query throughput that does not grow with the shards. MongoDB, Cassandra, Elasticsearch."
+    tags: [indexes]
+  - front: "Global secondary index"
+    back: "Index over all records, sharded by indexed value. A read with one condition reads a single index shard. A write touches several shards: distributed transaction or asynchrony with stale reads (DynamoDB). CockroachDB, TiDB, YugabyteDB."
+    tags: [indexes]
+  - front: "When the global index pays off"
+    back: "Many more reads than writes and short postings lists. With several conditions the terms live on different shards and the postings lists travel over the network for the intersection."
+    tags: [indexes]
+  - front: "Common pattern for the key"
+    back: "First part of the key as partition key that decides the shard, rest of the key sorted within the shard. Efficient range queries among records with the same partition key."
+    tags: [sharding]

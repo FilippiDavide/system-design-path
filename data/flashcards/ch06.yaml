@@ -1,0 +1,135 @@
+chapter: 6
+title: Replication
+cards:
+  - front: "Replication vs backup"
+    back: "Replication propagates writes quickly, including an accidental deletion. A backup keeps old snapshots so you can go back in time. Complementary: backups create replicas, archiving the log is part of a backup."
+    tags: [replication]
+  - front: "Single-leader replication"
+    back: "One replica is the leader and receives all writes, sends them to the followers as a log applied in the same order. Reads can go anywhere. PostgreSQL, MySQL, Kafka, Raft."
+    tags: [single-leader]
+  - front: "Synchronous vs asynchronous replication"
+    back: "Synchronous: the leader waits for the follower's confirmation, data guaranteed but if the follower does not respond writes block. Asynchronous: fast but if the leader dies the unreplicated writes are lost even though acknowledged."
+    tags: [single-leader]
+  - front: "Semi-synchronous replication"
+    back: "One synchronous follower and the others asynchronous. If the synchronous one slows down another is promoted. Guarantee: up-to-date data on at least two nodes."
+    tags: [single-leader]
+  - front: "Adding a follower without downtime"
+    back: "Consistent snapshot of the leader without locking, copy to the new node, request all changes since a precise position in the log (log sequence number, GTID), apply the backlog."
+    tags: [single-leader, operations]
+  - front: "Zero-disk architecture"
+    back: "Everything persisted on object storage, disks and RAM only as caches, nodes with no persistent state. WarpStream, Bufstream, SlateDB, cloud warehouses. Cost: high latency and per-call fees, hence batching."
+    tags: [cloud, storage]
+  - front: "Catch-up recovery of a follower"
+    back: "From its own log the follower knows the last transaction applied, asks the leader for the rest and catches up. The leader has to decide how much log to keep for absent followers."
+    tags: [single-leader, reliability]
+  - front: "Failover"
+    back: "Promote a follower to leader, redirect the clients, make the other followers follow the new leader. Three steps: detect the failure with a timeout, choose the most up-to-date one, reconfigure."
+    tags: [single-leader, reliability]
+  - front: "What can go wrong in a failover"
+    back: "Unreplicated writes discarded, inconsistency with external systems (GitHub and the reused primary keys), split brain with two leaders, timeout too long or too short."
+    tags: [single-leader, reliability]
+  - front: "Split brain"
+    back: "Two nodes both believe they are the leader and accept writes: data lost or corrupted. Shutting down the old leader is called fencing, but it may shut down both or arrive too late."
+    tags: [single-leader, reliability]
+  - front: "Statement-based replication"
+    back: "The leader forwards every INSERT, UPDATE, DELETE. Compact but broken by NOW, RAND, autoincrement, triggers. Safe only with deterministic transactions (VoltDB)."
+    tags: [single-leader]
+  - front: "WAL shipping vs logical log"
+    back: "WAL shipping sends the bytes of disk blocks: coupled to the storage engine, same version everywhere, upgrades with downtime. The logical log describes rows: different versions, upgrades without downtime, readable by external systems (change data capture)."
+    tags: [single-leader]
+  - front: "Eventual consistency"
+    back: "If you stop writing, the replicas converge sooner or later. Eventually is deliberately vague: usually a fraction of a second, minutes under load. Applies to asynchronous relational databases as much as to NoSQL."
+    tags: [consistency]
+  - front: "Read-after-write (read-your-writes)"
+    back: "The user always sees their own writes, not necessarily those of others. Own data from the leader, timestamp of the last write to pick a replica that is up to date enough."
+    tags: [consistency]
+  - front: "Monotonic reads"
+    back: "A sequence of reads by the same user never sees data older than what it has already seen. Time does not go backward. Same replica per user, chosen by a hash of the ID."
+    tags: [consistency]
+  - front: "Consistent prefix reads"
+    back: "If writes happen in an order, readers see them in that order. Avoids seeing the answer before the question. Problem of independent shards with no global ordering."
+    tags: [consistency]
+  - front: "Region and availability zone"
+    back: "Region: several datacenters in one geographic location. Zone: one datacenter with its own power and cooling. Multi-zone survives a zone outage, not a region outage."
+    tags: [cloud]
+  - front: "Multi-leader replication"
+    back: "Several nodes accept writes and forward them to the others. Active/active. Only makes sense asynchronous, typically one leader per region or per device."
+    tags: [multi-leader]
+  - front: "Why does multi-leader not guarantee unique usernames?"
+    back: "Two leaders accept writes that are individually valid but together violate the constraint. Fundamental limitation of distributed systems: constraints need a single leader."
+    tags: [multi-leader, consistency]
+  - front: "Multi-leader topologies"
+    back: "Circular, star, all-to-all. In the first two one node down interrupts the flow and writes are tagged with the nodes passed through to avoid loops. All-to-all tolerates more but messages overtake each other."
+    tags: [multi-leader]
+  - front: "Sync engine"
+    back: "Library that captures local changes, sends or queues them, receives the others', merges them and updates the UI. Every device or tab is a leader. Automerge, Yjs, PouchDB, Firestore."
+    tags: [multi-leader, local-first]
+  - front: "Offline-first vs local-first"
+    back: "Offline-first: you keep working without a network. Local-first: it works even if the developer shuts down the servers, thanks to an open sync protocol. Git is local-first."
+    tags: [local-first]
+  - front: "Concurrent writes (definition)"
+    back: "Neither of the two knew about the other when it was made. Physical time does not matter, what matters is whether one happened in a state where the other had already taken effect."
+    tags: [conflicts]
+  - front: "Conflict avoidance"
+    back: "All writes to a record on the same leader, for example a home region per user. It breaks if you change the designated leader. Variant: odd IDs on one leader, even on the other."
+    tags: [conflicts]
+  - front: "Last write wins"
+    back: "The highest timestamp wins, the other write is silently discarded even though acknowledged. Among concurrent writes the last one is not defined: arbitrary choice, convergence at the price of data loss. Fragile with system clocks."
+    tags: [conflicts]
+  - front: "Sibling"
+    back: "Concurrent values all kept by the database and returned on read, so that the application or the user merges them and writes back. CouchDB. Changes the API: a title becomes a set."
+    tags: [conflicts]
+  - front: "Amazon shopping cart anomaly"
+    back: "Merging siblings by set union: an item removed in one sibling but present in another reappeared. A CRDT tracks the deletions and gives the correct result."
+    tags: [conflicts]
+  - front: "Strong eventual consistency"
+    back: "Eventual consistency plus a convergence guarantee: all replicas that have processed the same writes have the same state, regardless of the order of arrival."
+    tags: [conflicts, consistency]
+  - front: "CRDT"
+    back: "Conflict-free replicated datatype. Every element has a unique immutable ID and operations refer to the IDs, not to indexes. Concurrent insertions ordered by ID, no transformation. Riak, Redis Enterprise, Automerge, Yjs."
+    tags: [conflicts]
+  - front: "Operational transformation"
+    back: "Operations by index. When applying a concurrent operation the index is transformed to account for those already applied. Google Docs, ShareDB."
+    tags: [conflicts]
+  - front: "Leaderless replication (Dynamo-style)"
+    back: "No leader, every replica accepts writes from the client or from a coordinator that does not enforce an ordering. Riak, Cassandra, ScyllaDB. DynamoDB instead is single-leader with Multi-Paxos."
+    tags: [leaderless]
+  - front: "Read repair"
+    back: "The client reads from several replicas, sees a stale response and writes the newer value back to that replica. Covers frequently read values."
+    tags: [leaderless]
+  - front: "Hinted handoff"
+    back: "A replica keeps as hints the writes meant for a replica that is down and delivers them when it comes back. Also covers values that are never read."
+    tags: [leaderless]
+  - front: "Anti-entropy"
+    back: "Background process that compares the replicas and copies what is missing, in no particular order and with delay."
+    tags: [leaderless]
+  - front: "Quorum condition"
+    back: "With n replicas, w acknowledgments to write and r responses to read: if w + r > n the sets overlap and at least one node read has the most recent value. Typically odd n, w = r = majority."
+    tags: [leaderless]
+  - front: "What w and r really do"
+    back: "Requests always go to all n nodes. w and r only say how many responses to wait for before considering the operation successful."
+    tags: [leaderless]
+  - front: "Limitations of quorums"
+    back: "Even with w + r > n: new node restored from an old one, rebalancing with non-overlapping quorums, read concurrent with a write, failed write not rolled back where it succeeded, clocks running ahead with LWW, concurrent writes in different orders. Tunes the probability, does not eliminate it."
+    tags: [leaderless, consistency]
+  - front: "Sloppy quorum"
+    back: "During a partition, any reachable replica accepts the write even if it is not among the usual n for that key. No guarantee of reading it back. Consistency level ANY in Cassandra."
+    tags: [leaderless]
+  - front: "Request hedging"
+    back: "Send the request to several replicas and use the fastest responses, ignoring the slow ones. Cuts tail latency. Natural in leaderless systems."
+    tags: [leaderless, performance]
+  - front: "Gray failure"
+    back: "Node not dead but degraded, unusually slow. A leader-based system must decide whether a failover is worth it; a leaderless system simply ignores it."
+    tags: [reliability]
+  - front: "Monitoring staleness"
+    back: "With a leader you subtract the follower's position from the leader's position in the log. Without a leader there is no ordering and no clean metric: the number of pending hints is a vague clue."
+    tags: [leaderless, operations]
+  - front: "Happens-before"
+    back: "A happens-before B if B knows about A, depends on A or builds upon A. Two operations are concurrent if neither happens-before the other. Physical time is irrelevant."
+    tags: [causality]
+  - front: "Version algorithm with a single replica"
+    back: "Version per key. The read returns all the siblings and the version. The write carries the version from the preceding read and merges the siblings. The server overwrites versions lower or equal and keeps the higher ones because they are concurrent."
+    tags: [causality]
+  - front: "Version vector"
+    back: "One version per replica and per key. Each replica increments its own and tracks those seen from the others. Travels to the client on read and comes back on write. Distinguishes overwrites from concurrent writes. Riak calls it causal context."
+    tags: [causality]

@@ -1,0 +1,123 @@
+chapter: 9
+title: The Trouble with Distributed Systems
+cards:
+  - front: "Partial failure"
+    back: "In a distributed system some parts are broken in unpredictable ways while others work. Nondeterministic: the same operation sometimes succeeds and sometimes doesn't, and you don't even know whether it succeeded."
+    tags: [faults]
+  - front: "Why does a single computer prefer to crash?"
+    back: "Design choice: a wrong result is harder to handle than a crash. It hides the physical reality behind an idealized, deterministic model."
+    tags: [faults]
+  - front: "Asynchronous packet network"
+    back: "No guarantee about when a message arrives nor whether it arrives. Request lost, queued, node dead, node paused, response lost, response delayed: all indistinguishable. The only tool is the timeout."
+    tags: [network]
+  - front: "Why TCP doesn't make the network reliable"
+    back: "It can't tell a lost packet from a lost ack, doesn't plug cables back in, deduplicates only within one connection, an ack means the kernel received it not the application. You need a response from the application."
+    tags: [network]
+  - front: "Network faults in practice"
+    back: "About 12 per month in a medium-sized datacenter. Main cause human configuration errors, not the equipment. Round trips of minutes at the high percentiles. Asymmetric faults: A talks to B and B to C but A not to C."
+    tags: [network]
+  - front: "Timeout trade-off"
+    back: "Long: slow recovery. Short: live nodes declared dead because of a spike, actions done twice, shifted load that makes a struggling system worse up to a cascading failure."
+    tags: [network]
+  - front: "Where delay variability comes from"
+    back: "From queues: in the switch when several nodes send to the same destination, in the operating system if the CPUs are busy, in the hypervisor during VM pauses, in the sender because of TCP's rate limiting."
+    tags: [network]
+  - front: "When to use UDP"
+    back: "When a late piece of data is worth nothing, as in VoIP. No retransmission or flow control, less variability. The retry happens at the human layer."
+    tags: [network]
+  - front: "How to choose the timeout"
+    back: "Experimentally, measuring the distribution of round trips over many machines and for a long time. Better to adapt it continually to the observed distribution: Phi Accrual failure detector in Akka and Cassandra."
+    tags: [network]
+  - front: "Circuit switching vs packet switching"
+    back: "The circuit reserves bandwidth along the whole path: no queues, bounded delay, but low utilization. Packets share dynamically: queues and unbounded delays, but maximum utilization. Economic choice, not a law of nature."
+    tags: [network]
+  - front: "Time-of-day clock"
+    back: "Calendar date and time, synchronized with NTP, comparable across machines in theory. Can jump backwards because of NTP resets, leap seconds, DST. Unsuitable for measuring durations."
+    tags: [clocks]
+  - front: "Monotonic clock"
+    back: "Counter that only goes forward, absolute value meaningless, not comparable across machines. NTP can only slow it down or speed it up by 0.05%. Right for timeouts and durations."
+    tags: [clocks]
+  - front: "Quartz drift"
+    back: "Up to 200 ppm according to Google: 6 ms every 30 seconds of resync, 17 seconds per day. Limits accuracy even when everything works."
+    tags: [clocks]
+  - front: "Why a wrong clock is dangerous"
+    back: "It goes unnoticed. Broken CPUs or networks don't work and are visible. A drifting quartz produces subtle data loss, not a crash. Monitor the offsets and evict the nodes that drift too far."
+    tags: [clocks]
+  - front: "LWW with physical clocks loses writes"
+    back: "A causally later increment can have a lower timestamp because of a skew of a few ms and gets discarded. A node with a clock that is behind can't overwrite until the skew has elapsed. Cassandra and ScyllaDB do this."
+    tags: [clocks, replication]
+  - front: "Logical vs physical clocks"
+    back: "Logical: counters that give only the relative order of events. Physical: time-of-day and monotonic, they measure real time. To order events you need logical ones: the clock error would have to be much smaller than the network delay."
+    tags: [clocks]
+  - front: "Clock reading as an interval"
+    back: "Accuracy is tens of ms even with nanosecond resolution. A reading is a confidence interval as wide as drift plus the server's uncertainty plus the round trip. TrueTime and ClockBound return earliest and latest."
+    tags: [clocks]
+  - front: "How Spanner uses TrueTime"
+    back: "If two intervals don't overlap the order is certain. Spanner waits for the width of the interval before committing a read/write transaction. GPS and atomic clocks only serve to keep the wait short."
+    tags: [clocks, transactions]
+  - front: "Lease"
+    back: "A lock with an expiry. One holder at a time, must be renewed periodically. If the holder stops, on expiry another takes over."
+    tags: [clocks, locks]
+  - front: "The two flaws of the lease loop"
+    back: "It compares an expiry computed on another machine with the local clock. It assumes little time passes between the validity check and the processing: a 15-second pause there makes it process with an expired lease."
+    tags: [clocks, locks]
+  - front: "Realistic causes of a process pause"
+    back: "Stop-the-world garbage collection, VM suspended or migrated, laptop lid closed, context switches and steal time, synchronous I/O even implicit, page faults and thrashing, SIGSTOP by mistake. The thread resumes without knowing it stopped."
+    tags: [clocks]
+  - front: "Hard real-time"
+    back: "Response within a guaranteed deadline in every circumstance: RTOS, libraries with documented worst case, no dynamic allocation. Hugely expensive, lower throughput. Not economical for the server side."
+    tags: [clocks]
+  - front: "Limiting the impact of GC"
+    back: "Modern collectors, languages without GC, object pools, or treat GC as a planned outage: warn, divert traffic, collect. Variant: periodic restart before the full GC."
+    tags: [clocks]
+  - front: "Why a node can't trust itself"
+    back: "It can receive and not be heard, it can be paused without knowing it. Decisions are made by a quorum, usually the majority, because there can be only one majority. The node declared dead must step down."
+    tags: [truth]
+  - front: "Zombie"
+    back: "Former leaseholder that doesn't know it has lost the lease and keeps acting as the holder. It can't be ruled out; it must be stopped from doing damage with fencing."
+    tags: [locks]
+  - front: "Why STONITH is not enough"
+    back: "Shutting down the zombie doesn't protect against a write already in the network and delayed by a minute, nodes can shut each other down, and often by the time you detect it the data is already corrupted."
+    tags: [locks]
+  - front: "Fencing token"
+    back: "Increasing number returned on every grant of the lock, included in every write. The storage rejects tokens lower than one already seen. Stops zombies and delayed requests. Sequencer in Chubby, epoch in Kafka, term in Raft."
+    tags: [locks]
+  - front: "Fencing with several replicas"
+    back: "Token in the most significant bits of the timestamp: every timestamp of the new holder exceeds those of the old one. If the zombie writes to a replica not yet reached, the quorum read prefers the higher timestamp and read repair fixes it."
+    tags: [locks, replication]
+  - front: "Byzantine fault"
+    back: "A node that lies or sends arbitrary responses, such as contradictory votes. The book assumes unreliable but honest nodes. Needed in aerospace and between parties that don't trust each other, not in datacenters."
+    tags: [byzantine]
+  - front: "Why Byzantine fault tolerance doesn't protect against bugs"
+    back: "It requires more than two-thirds of nodes to be healthy. With the same software everywhere, the same bug is everywhere. You would need four independent implementations. Same reasoning for attackers."
+    tags: [byzantine]
+  - front: "Weak forms of lying"
+    back: "Corrupted packets that evade TCP checksums, malicious input, wrong NTP servers. Simple defenses: application-level checksums, sanitization, several NTP servers with discarding of the outliers."
+    tags: [byzantine]
+  - front: "Timing models"
+    back: "Synchronous: bounded delays, pauses and drift, unrealistic. Partially synchronous: synchronous most of the time with finite exceptions, the most useful. Asynchronous: no assumptions, not even a clock, very restrictive."
+    tags: [models]
+  - front: "Node failure models"
+    back: "Crash-stop: dies forever. Crash-recovery: comes back with stable storage intact. Degraded or limping: responds to health checks but too slow to do work. Byzantine: anything."
+    tags: [models]
+  - front: "Safety"
+    back: "If violated you can point to the exact moment and the damage is irreversible. It must hold always, even if all nodes crash. Uniqueness and monotonicity of fencing tokens."
+    tags: [models]
+  - front: "Liveness"
+    back: "It may not hold now but there is hope for the future. It almost always contains eventually. It admits conditions such as a live majority and a recovering network. Eventual consistency is liveness."
+    tags: [models]
+  - front: "Model vs reality"
+    back: "Stable storage can get corrupted, a node with amnesia breaks the quorum. The implementation must handle even the impossible, if only with an exit and a human who cleans up."
+    tags: [models]
+  - front: "Model checking"
+    back: "Specification in TLA+ or similar, systematic exploration of the states of a simplified model. Infinite space hence bounded, and the model can diverge from the code. Used by CockroachDB, TiDB, Kafka."
+    tags: [testing]
+  - front: "Fault injection"
+    back: "Injecting real faults into a running system: kill, umount, firewall. Jepsen, Chaos Monkey. Effective but awkward and not precisely reproducible."
+    tags: [testing]
+  - front: "Deterministic simulation testing"
+    back: "Runs the real code with fake network, I/O and clock controlled by the simulator. Every run is reproducible and faster than real time. FoundationDB, TigerBeetle, MadSim, Antithesis."
+    tags: [testing]
+  - front: "The power of determinism"
+    back: "Nondeterminism is the root of distributed problems. Making it deterministic comes back everywhere: event log replay, durable execution, state machine replication, stored procedures, DST. Beware of hash tables and resource limits."
+    tags: [testing]

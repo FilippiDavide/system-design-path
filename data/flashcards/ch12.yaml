@@ -1,0 +1,138 @@
+chapter: 12
+title: Stream Processing
+cards:
+  - front: "Event"
+    back: "Small, self-contained, immutable record with the timestamp of when it happened. Generated once by a producer, processed by several consumers, grouped into topics."
+    tags: [streams]
+  - front: "Why polling is not enough"
+    back: "The more often you poll, the more requests come back empty and the more the overhead grows. Better to be notified. DB triggers are limited, hence messaging systems."
+    tags: [streams]
+  - front: "The two questions to classify a messaging system"
+    back: "What happens if producers are faster than consumers: drop, queue or backpressure. What happens if a node crashes: are messages lost? Durability has a cost."
+    tags: [messaging]
+  - front: "Limits of direct messaging"
+    back: "UDP multicast, ZeroMQ, StatsD, webhooks assume everyone is online. An offline consumer misses messages, a producer that crashes loses the retry buffer."
+    tags: [messaging]
+  - front: "Broker vs database"
+    back: "The broker deletes messages after delivery, assumes short queues, offers subscriptions by pattern instead of queries, and notifies of changes instead of giving snapshots."
+    tags: [messaging]
+  - front: "Load balancing vs fan-out"
+    back: "Load balancing: each message to one of the consumers, to parallelize expensive work. Fan-out: each message to all consumers. Kafka's consumer groups combine them."
+    tags: [messaging]
+  - front: "Why load balancing plus redelivery reorders"
+    back: "Consumer 2 crashes on m3 while consumer 1 processes m4. m3 is redelivered to consumer 1 after m4. Harmless if the messages are independent, serious with causality."
+    tags: [messaging]
+  - front: "Dead letter queue"
+    back: "A malformed message crashes every consumer and is redelivered endlessly. The DLQ moves it to another queue to unblock, with monitoring, and an operator decides."
+    tags: [messaging]
+  - front: "Why receiving from a traditional broker is destructive"
+    back: "The ack deletes the message. You cannot rerun a consumer and get the same result, and a new consumer only sees the messages after its registration."
+    tags: [messaging]
+  - front: "Log-based broker"
+    back: "Durable storage of the DB plus the notification of messaging. The producer appends, the consumer reads sequentially and at the end waits for a notification. Sharded into partitions with increasing offsets. Kafka, Kinesis."
+    tags: [log-broker]
+  - front: "Ordering in a log-based broker"
+    back: "Total within a partition, none across partitions. Events that must be ordered go in the same partition, by choosing the partition key (user ID)."
+    tags: [log-broker]
+  - front: "Limits of log-based load balancing"
+    back: "Whole partitions to the nodes, read single-threaded: at most as many consumers as partitions, and a slow message blocks its partition (head-of-line blocking). Parallelism = more partitions."
+    tags: [log-broker]
+  - front: "When AMQP/JMS and when log"
+    back: "Expensive messages, per-message parallelism, ordering irrelevant: AMQP/JMS. High throughput, fast messages, ordering important: log."
+    tags: [messaging, log-broker]
+  - front: "Consumer offset"
+    back: "The broker periodically records the consumer's offset instead of acks per message. It is the log sequence number of replication: broker leader, consumer follower. After a crash you restart from the last offset and see some messages again."
+    tags: [log-broker]
+  - front: "Disk space of a log-based broker"
+    back: "Segments, old ones deleted or archived: a ring buffer on disk. A 20 TB disk at 250 MB/s fills up in 22 hours at most, in practice days or weeks. Tiered or full object storage."
+    tags: [log-broker]
+  - front: "Slow consumer in a log"
+    back: "Large but fixed buffer: you monitor how far behind the head it is. A consumer that is too far behind loses messages but does not disturb the others. You can consume a production log for debugging without risk."
+    tags: [log-broker]
+  - front: "Replay"
+    back: "Consuming is read-only, the only effect is the offset, which belongs to the consumer. Restart from yesterday with new code and write elsewhere. Makes the log similar to batch."
+    tags: [log-broker]
+  - front: "Dual write"
+    back: "The app writes to the DB, then to the index, then invalidates the cache. Two flaws: race condition without detection (different orders in the two systems, inconsistent forever with no error) and one write succeeding while the other fails."
+    tags: [cdc]
+  - front: "Change data capture"
+    back: "Observing all the writes to a DB and extracting them as a stream that can be replicated elsewhere, in the same order decided by the DB. Makes one DB the leader and the other systems followers. Debezium, Kafka Connect."
+    tags: [cdc]
+  - front: "Initial snapshot for CDC"
+    back: "The log is not kept forever and a new index needs a full copy. You need a consistent snapshot tied to an offset in the log. Debezium uses Netflix's DBLog watermarking."
+    tags: [cdc]
+  - front: "Log compaction in a broker"
+    back: "Only the latest value per key, tombstones to delete. Space depends on the current contents. A new consumer starts from offset 0 of the compacted topic and gets a full copy without a snapshot."
+    tags: [cdc]
+  - front: "CDC vs event sourcing"
+    back: "CDC: mutable app, log extracted at a low level, added to an existing DB, events with the full version so compaction is possible. Event sourcing: immutable events of intention at the application level, whole history needed, no compaction."
+    tags: [cdc]
+  - front: "CDC and schemas"
+    back: "The DB schema becomes a public API: dropping a column breaks consumers that are production services. Data contracts to prevent it."
+    tags: [cdc]
+  - front: "Outbox pattern"
+    back: "A table with its own schema exposed to CDC instead of the internal model. It is a dual write, but both writes are in the same transaction on the same DB. Costs: transformation to maintain, more writes."
+    tags: [cdc]
+  - front: "State and streams"
+    back: "The state is the integral of the stream over time, the stream is the derivative of the state. Gray and Reuter: there is no fundamental need for a database, the log contains everything; the database is kept for the performance of reads."
+    tags: [immutability]
+  - front: "Advantages of immutable events"
+    back: "The accountants' ledger: mistakes corrected with compensations, never deleted. Recovery from buggy code, audit, and more information than the state: the item put in the cart and removed stays in the log."
+    tags: [immutability]
+  - front: "Several views from the same log"
+    back: "A new feature is a new view alongside the old ones, no migration; then shut down the old one. Normalizing or denormalizing becomes almost irrelevant: the read views can be denormalized."
+    tags: [immutability]
+  - front: "Concurrency with an event log"
+    back: "A user action becomes a single write, the append, easy to make atomic. With log and state sharded the same way, a single-threaded consumer per shard needs no concurrency control."
+    tags: [immutability]
+  - front: "Limitations of immutability"
+    back: "History that explodes with many updates, compaction critical. GDPR demands real deletion: excision, shunning. Deleting is hard because of copies everywhere. Crypto-shredding shifts the problem to the keys."
+    tags: [immutability]
+  - front: "Complex event processing"
+    back: "Searching for patterns of events like a regex searches for patterns of characters. Queries are permanent and data transient, the inverse of a DB. Fraud, trading."
+    tags: [processing]
+  - front: "Probabilistic algorithms in streams"
+    back: "Bloom filters, HyperLogLog, percentile estimates save memory. They are an optimization, not a property of stream processing, which is not inherently approximate."
+    tags: [processing]
+  - front: "Incremental view maintenance"
+    back: "DBs refresh views in batch by recomputing everything. IVM translates the query into incremental operators and updates only what changes. Materialize, RisingWave, ClickHouse, Feldera."
+    tags: [processing]
+  - front: "Event time vs processing time"
+    back: "Event time is the timestamp of the event, processing time the clock of the machine processing it. Confusing them gives false data: after a redeploy that works through the backlog you see a spike of requests that never existed."
+    tags: [time]
+  - front: "Straggler"
+    back: "Event that arrives after the window has been declared closed. Options: ignore it while counting how many, or publish a correction retracting the previous output."
+    tags: [time]
+  - front: "The three timestamps of the mobile app"
+    back: "Event according to the device, sending according to the device, receipt according to the server. Receipt minus sending estimates the offset of the device clock, to apply to the event."
+    tags: [time]
+  - front: "Tumbling, hopping, sliding, session"
+    back: "Tumbling: fixed, every event in exactly one. Hopping: fixed, overlapping. Sliding: all the events within some interval of each other. Session: no fixed duration, closed after user inactivity."
+    tags: [time]
+  - front: "Stream-stream join"
+    back: "Two streams of events correlated within a window, like searches and clicks by session ID. State: indexes for both, emit on match or on expiry. The click may arrive before the search."
+    tags: [joins]
+  - front: "Stream-table join"
+    back: "Enriching events with a DB. The remote DB is not queried: local copy (hash join) kept up to date via CDC. Infinite window for the changelog, latest version wins."
+    tags: [joins]
+  - front: "Table-table join"
+    back: "Two changelogs, materialized view of the join. The social timeline from posts and follows. Product rule: every change to posts joined with the current followers, every change to follows with the current posts."
+    tags: [joins]
+  - front: "Nondeterminism of stream joins"
+    back: "Ordering across different streams is not guaranteed: an event joined with the old or the new profile? Rerunning does not give the same result. Slowly changing dimension: an ID per version, deterministic but no compaction."
+    tags: [joins]
+  - front: "Microbatching vs checkpointing"
+    back: "Microbatching (Spark Streaming): blocks of about one second as mini-batches, implicit tumbling window by processing time. Checkpointing (Flink): periodic snapshots triggered by barriers, restart from the last one and discard the output after it."
+    tags: [fault-tolerance]
+  - front: "Where the framework's exactly-once ends"
+    back: "As soon as the output leaves the framework: DB, external broker, email. The retry duplicates the effect. You need internal atomic commit or idempotence."
+    tags: [fault-tolerance]
+  - front: "Atomic commit in streaming"
+    back: "All outputs and effects, including advancing the offset, persist if and only if processing succeeds. Transactions internal to the framework, not XA: Dataflow, VoltDB, Kafka. Amortized over several messages."
+    tags: [fault-tolerance]
+  - front: "Idempotence with the offset"
+    back: "Write to the external DB together with the offset of the message that caused the last write: you know whether the update has already been applied. Assumptions: same messages in the same order, deterministic processing, no other writer, fencing on failover."
+    tags: [fault-tolerance]
+  - front: "Rebuilding state"
+    back: "Local state replicated periodically: Flink with snapshots on the DFS, Kafka Streams with a compacted topic as CDC of the state, VoltDB processing on several nodes. Or replay of the inputs for short windows."
+    tags: [fault-tolerance]

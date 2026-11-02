@@ -1,0 +1,87 @@
+chapter: 2
+title: Requisiti non funzionali
+cards:
+  - front: Fan-out
+    back: Fattore per cui una richiesta iniziale genera richieste a valle. Nel social network, un post genera una scrittura per ogni follower.
+    tags: [performance, case-study]
+  - front: Materialized view
+    back: Risultato di una query precalcolato e aggiornato a ogni scrittura. Paga in scrittura per guadagnare in lettura.
+    tags: [performance, derived-data]
+  - front: Come si gestisce il post di una celebrità con milioni di follower?
+    back: Non si fa fan-out. I post delle celebrità stanno a parte e vengono uniti alla timeline al momento della lettura (ibrido push + pull).
+    tags: [case-study]
+  - front: Response time vs throughput
+    back: Response time è il tempo visto dall'utente, in secondi. Throughput è richieste o byte al secondo e determina quanti server servono, quindi il costo.
+    tags: [performance]
+  - front: Perché il response time esplode vicino alla capacità massima?
+    back: Per la coda. Le richieste aspettano quelle già in elaborazione e il ritardo di accodamento cresce bruscamente avvicinandosi al limite dell'hardware.
+    tags: [performance]
+  - front: Metastable failure
+    back: Sistema sovraccarico che resta tale anche quando il carico torna normale, tipicamente per un retry storm. Si risolve solo con riavvio o reset.
+    tags: [reliability, performance]
+  - front: Contromisure al retry storm
+    back: "Client: exponential backoff con jitter, circuit breaker, token bucket. Server: load shedding, backpressure."
+    tags: [reliability, performance]
+  - front: Response time, service time, queueing delay, latency
+    back: Response time è il totale visto dal client. Service time è l'elaborazione effettiva. Queueing delay è l'attesa in coda. Latency è il tempo in cui la richiesta non viene elaborata, ad esempio il viaggio in rete.
+    tags: [performance]
+  - front: Head-of-line blocking
+    back: Poche richieste lente bloccano quelle dietro in coda, perché il server elabora in parallelo solo quanto i suoi core permettono. Per questo si misura lato client.
+    tags: [performance]
+  - front: Perché i percentili e non la media?
+    back: Il response time è una distribuzione. La media non dice quanti utenti hanno aspettato quanto. p50 è l'esperienza tipica, p99 e p999 misurano gli outlier.
+    tags: [performance]
+  - front: Tail latency amplification
+    back: Una richiesta utente che chiama N backend in parallelo aspetta il più lento. Anche con pochi backend lenti, la quota di richieste utente lente cresce con N.
+    tags: [performance]
+  - front: SLO vs SLA
+    back: SLO è l'obiettivo misurabile (p99 sotto 1 s, 99,9% senza errori). SLA è il contratto che dice cosa succede se l'SLO non è rispettato.
+    tags: [performance]
+  - front: Come si aggregano i percentili di più macchine?
+    back: Non si fa la media dei percentili, è priva di senso. Si sommano gli istogrammi. Librerie come HdrHistogram, t-digest, DDSketch.
+    tags: [performance]
+  - front: Fault vs failure
+    back: Fault è un componente che smette di funzionare. Failure è il sistema intero che non rispetta l'SLO. Un disco guasto è failure del disco e fault del sistema che lo contiene.
+    tags: [reliability]
+  - front: Single point of failure
+    back: Componente il cui fault diventa failure dell'intero sistema perché non è tollerato.
+    tags: [reliability]
+  - front: Fault injection / chaos engineering
+    back: Provocare guasti a caso in produzione per esercitare il codice di gestione errori, dove si nascondono molti bug critici.
+    tags: [reliability]
+  - front: Guasti hardware vs guasti software
+    back: Hardware frequenti ma per lo più indipendenti. Software rari ma fortemente correlati perché tutti i nodi girano lo stesso codice, quindi cadono insieme.
+    tags: [reliability]
+  - front: Availability zone
+    back: Gruppo di risorse fisicamente co-locate, che tendono a guastarsi insieme. La fault tolerance cloud distribuisce fra zone diverse.
+    tags: [reliability]
+  - front: Rolling upgrade
+    back: Aggiornare un nodo alla volta in un sistema fault-tolerant, senza fermare il servizio.
+    tags: [reliability, operations]
+  - front: Blameless postmortem
+    back: Dopo un incidente si racconta tutto senza paura di punizioni. L'errore umano è un sintomo del sistema sociotecnico, non la causa.
+    tags: [reliability, operations]
+  - front: Prima causa di outage nei grandi servizi
+    back: Cambi di configurazione fatti dagli operatori. L'hardware pesa solo per il 10-25%.
+    tags: [reliability]
+  - front: Scalabilità lineare
+    back: Doppie risorse reggono doppio carico a performance invariata. Rara. Di solito il costo cresce più che linearmente.
+    tags: [scalability]
+  - front: Shared memory, shared disk, shared nothing
+    back: Shared memory è una macchina più grossa (scale up). Shared disk sono nodi indipendenti su storage condiviso NAS/SAN, limitati da lock e contention. Shared nothing sono nodi indipendenti coordinati via rete (scale out), richiede sharding.
+    tags: [scalability]
+  - front: Regola dell'ordine di grandezza
+    back: Un'architettura regge circa 10x il carico per cui è stata pensata. Oltre si ripensa. Non vale la pena pianificare più in là.
+    tags: [scalability]
+  - front: Principio generale di scalabilità
+    back: Spezzare il sistema in componenti che operano indipendentemente. È la base di microservizi, sharding, stream processing, shared nothing.
+    tags: [scalability]
+  - front: Le tre proprietà della manutenibilità
+    back: Operabilità (facile da tenere in esercizio), semplicità (facile da capire), evolvibilità (facile da cambiare).
+    tags: [maintainability]
+  - front: Perché più automazione non è sempre più operabilità?
+    back: I casi che l'automazione non gestisce sono i più complessi e richiedono operatori più bravi. Un sistema automatico che sbaglia è più difficile da diagnosticare.
+    tags: [maintainability, operations]
+  - front: Irreversibilità
+    back: Il maggior ostacolo al cambiamento nei grandi sistemi. Se non puoi tornare indietro la posta in gioco sale. Minimizzarla aumenta la flessibilità.
+    tags: [maintainability]

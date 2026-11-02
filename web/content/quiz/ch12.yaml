@@ -1,0 +1,93 @@
+# Model answers for the chapter 12 self-check questions, in the same
+# order as the questions in docs/ch12-stream-processing.md.
+answers:
+  - section: 1-transmitting-event-streams
+    pdf: 512
+    answer: |
+      First question: what happens if the producers are faster than the consumers? Three answers: drop messages (acceptable for sensor readings, not for counted events), buffer them in a queue (and then: what happens when the queue no longer fits in memory, does it spill to disk, does throughput collapse?), or apply backpressure, blocking the producer the way a Unix pipe or TCP does.
+
+      Second question: what happens if a node crashes or goes offline, are messages lost? Durability costs replication or disk writes, so it is a trade-off, and the danger is that a massive loss can go unnoticed. The two questions matter because they are what distinguishes a webhook or UDP multicast from a durable broker.
+  - section: traditional-brokers-amqpjms
+    pdf: 515
+    answer: |
+      With load balancing each message goes to one consumer of the group, in parallel. If consumer 2 takes m3 and crashes before acking it, the broker redelivers m3 to consumer 1, which has meanwhile already received and processed m4. From the point of view of the effects, m4 happened before m3: the order the producer sent is lost.
+
+      It does not matter when the messages are independent tasks (resize this image, send that email). It matters when there is causality between them, for example two updates to the same record, where applying the later one first corrupts the state. The chapter's rule: expensive, independent work goes to an AMQP/JMS broker; ordered events go to a log-based broker with a partition key.
+  - section: log-based-brokers
+    pdf: 519
+    answer: |
+      In a traditional broker a message is deleted once it has been acknowledged: delivery destroys it. The broker has a transient mindset, it is not meant to be storage. Therefore you cannot run the same consumer twice and get the same result, and a consumer registered today only sees the messages published from now on, because the earlier ones were already delivered to someone else and thrown away.
+
+      A log-based broker keeps every message on disk (a big ring buffer in segments) and reading only moves the consumer's offset. A new consumer, or an old one with new code, can start from any offset and reread the past, which is what makes stream processing resemble batch: a repeatable transformation of an immutable input.
+  - section: log-based-brokers
+    pdf: 519
+    answer: |
+      A partition is read single-threaded, in order, by exactly one node of the consumer group; load balancing happens by assigning whole partitions, not individual messages. So there can be at most as many active consumers as partitions, and to get more parallelism you need more partitions.
+
+      A message that is slow to process blocks every message behind it in the same partition: head-of-line blocking. A traditional broker would just hand the next message to another consumer. This is the price of ordering within the partition.
+  - section: log-based-brokers
+    pdf: 519
+    answer: |
+      The broker does not track an ack per message; it periodically records, per consumer, the offset up to which that consumer has read. The offset plays the same role as the log sequence number in single-leader replication: the broker is the leader that owns the log, the consumer is a follower that has applied it up to a certain point. Less bookkeeping, and batching and pipelining become easy.
+
+      If the consumer crashes, the node that takes over its partitions restarts from the last recorded offset. Everything processed after that record but before the crash is processed again: at-least-once, with duplicates, but in the same order. Handling those duplicates is the job of idempotence or atomic commit, later in the chapter.
+  - section: the-problem-keeping-systems-in-sync
+    pdf: 525
+    answer: |
+      Dual writes mean the application writes to the database, then to the index, then invalidates the cache, each as a separate request. First flaw: a race condition with no detection. Two clients updating X concurrently can reach the database in the order A, B and the index in the order B, A; both stores end up different and no error is raised, forever. Second flaw: partial failure, one write succeeds and the other fails, and nobody retries, so the stores diverge again. Fixing that would require atomic commit across heterogeneous systems, which is expensive.
+
+      The root cause is that each store has its own leader; it is multi-leader replication by accident. Change data capture makes the database the only leader: every write goes to it, it decides the order and appends it to its log, and the index, cache and warehouse are followers that apply that log in the same order. One ordering removes the race, and a failed follower simply resumes from its offset.
+  - section: change-data-capture
+    pdf: 527
+    answer: |
+      Compaction keeps, for every key, only the most recent entry in the log and drops the superseded ones; a tombstone marks a deletion. The size of the compacted log is bounded by the current contents of the database, not by its history. When every change carries the full new value of its row (primary-key CDC where an update replaces the value), reading the compacted topic from offset 0 yields exactly the current state of every row: a full copy, with no consistent snapshot of the database needed.
+
+      Event sourcing does not work this way: each event records an intention ("item added to cart"), not the resulting state, so a later event does not supersede an earlier one and the whole history is needed to rebuild the state. There is nothing to compact; snapshots of the state exist only as an optimization on top of the full log.
+  - section: cdc-versus-event-sourcing
+    pdf: 531
+    answer: |
+      With CDC the database schema becomes a public API: consumers read the raw change log, so dropping a column breaks production services. The outbox pattern avoids exposing the internal model: the application, within the same transaction as its normal writes, inserts into a dedicated outbox table with its own stable schema, and CDC is pointed at that table only.
+
+      It is a dual write in the sense that the application writes twice, to its own tables and to the outbox. It does not suffer from the dual-write problems because both writes are in one transaction on the same database: either both are committed or neither, and the ordering of outbox entries is the database's commit order. The costs are maintaining the transformation between internal model and outbox schema and the extra writes.
+  - section: state-streams-and-immutability
+    pdf: 532
+    answer: |
+      The current state of a database is the result of all the events that changed it: the available seats are the integral of bookings and cancellations, the balance is the integral of debits and credits. Conversely, the stream of changes is the derivative of the state. Mutable state and immutable log are two sides of the same coin, and log compaction is the bridge between them.
+
+      Gray and Reuter (1992): "there is no fundamental need to keep a database; the log contains all the information. The database is kept only for the performance of reads." The log is the source of truth; every view of it, including the database itself, is a read-optimized derivation that can be rebuilt.
+  - section: reasoning-about-time
+    pdf: 542
+    answer: |
+      Event time is when the event happened, by the producer's clock; processing time is when the stream processor saw it. They diverge because of queueing, network faults, restarts and reprocessing.
+
+      The spike: a processor is stopped for a redeploy, or crashes, for a few minutes. Events keep arriving in the broker. When it comes back it works through the backlog quickly: thousands of events are processed within a few seconds. A metric computed by processing time ("requests per second seen now") shows a huge spike at that moment, while the real request rate was flat; by event time the same events are spread across the minutes in which they actually happened, and the graph is correct. Batch processing never has this problem because it always uses the event timestamp.
+  - section: reasoning-about-time
+    pdf: 542
+    answer: |
+      A mobile app buffers events while offline and sends them hours or days later; the server cannot use its own receipt time (the events would be extreme stragglers) and cannot trust the device clock either (chapter 9). So every event carries three timestamps: when the event happened, by the device clock; when it was sent to the server, by the device clock; when it was received, by the server clock.
+
+      Receipt time minus send time, ignoring network delay, estimates the offset between the device clock and the server clock. Applying that offset to the first timestamp gives a corrected event time. Batch has the same issue; streaming just makes it visible.
+  - section: reasoning-about-time
+    pdf: 542
+    answer: |
+      Tumbling: fixed length, every event in exactly one window, 10:03:00-10:03:59, 10:04:00-10:04:59 and so on; the two events fall in different 5-minute windows (10:00-10:04 and 10:05-10:09). Hopping: fixed length with overlap, for example 5 minutes every 1 minute: 10:03-10:07 and 10:04-10:08 each contain only the first event (the second is 10:08:12), so they are never together. Sliding: all events within 5 minutes of each other; 10:03:39 and 10:08:12 are 4 min 33 s apart, so they are in the same sliding window, kept in a sorted buffer. Session: no fixed length, events of the same user closed after a period of inactivity (say 30 min); if they belong to the same user they are in the same session.
+
+      The lesson is that "the last five minutes" has several meanings and the choice changes the answer.
+  - section: stream-joins
+    pdf: 547
+    answer: |
+      Querying the remote database for every event would be slow (a network round trip per event) and would overload the database. Instead the stream processor keeps a local copy of the table and does a hash join against it: the enrichment is a lookup in local memory or disk.
+
+      The copy is kept current with change data capture: the database's changelog is a second input of the join, with an infinite window where the latest version of each row replaces the previous one. Unlike a batch job, which uses a snapshot, the table changes while the job runs, which is why the join is time-dependent.
+  - section: stream-joins
+    pdf: 547
+    answer: |
+      When joining two streams, or a stream with a changelog, there is no guaranteed ordering across the two inputs. An event for a sale and an update to the tax-rate table may arrive in either order, so the sale is joined with the old or the new rate depending on timing: rerunning the job on the same history can give a different result, the join is nondeterministic.
+
+      The slowly changing dimension technique from data warehousing fixes it by giving every version of the joined record its own identifier (a new ID each time the tax rate changes) and recording that ID in the event: the sale then references exactly the version in force at the time. The result is deterministic, but no version can ever be compacted away because all of them are needed; the alternative is to denormalize the rate into the sale event.
+  - section: fault-tolerance
+    pdf: 550
+    answer: |
+      Microbatching (Spark Streaming) processes the stream as a sequence of small batches of about a second; checkpointing (Flink) periodically snapshots the operators' state, triggered by barriers in the stream, and on failure restarts from the last checkpoint discarding the output produced after it. Both give exactly-once, or effectively-once, as long as the output stays inside the framework, where it can be discarded and recomputed. The guarantee ends as soon as a side effect leaves it: a write to an external database, a message on another broker, an email. The retry then repeats the effect.
+
+      Two ways to extend it. Atomic commit: all outputs, state changes and the advance of the input offset are committed together, a restricted form of 2PC inside one system (Kafka transactions, Dataflow, VoltDB), amortized over many messages. Idempotence: make each update harmless to repeat by storing with it the offset of the message that caused it, so an already-applied update is recognised. Idempotence assumes that a retry sees the same messages in the same order (the log guarantees that), that processing is deterministic, that no other node updates the same value, and fencing so a failed node cannot keep writing.

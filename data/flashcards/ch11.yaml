@@ -1,0 +1,99 @@
+chapter: 11
+title: Batch Processing
+cards:
+  - front: "Batch job"
+    back: "Reads read-only input and regenerates the output from scratch on every run, without mutating data or side effects. Measured by throughput. The output is derived data."
+    tags: [batch]
+  - front: "Human fault tolerance"
+    back: "A bug produces wrong output: you go back to the previous code and rerun, or keep the old output (time travel). A read/write DB doesn't allow this: rolling back the code doesn't repair the data."
+    tags: [batch]
+  - front: "Limits of batch"
+    back: "The output is usable only once the job has finished, and one changed byte in the input reprocesses the whole dataset."
+    tags: [batch]
+  - front: "State of MapReduce today"
+    back: "Obsolete, no longer used at Google. Replaced by dataflow engines like Spark and Flink and by the query engines of the warehouses. Still useful for understanding its successors."
+    tags: [batch]
+  - front: "Unix pipeline for the most visited pages"
+    back: "awk extracts the URL, sort makes repetitions adjacent, uniq -c counts identical adjacent lines, sort -r -n reorders by count, head takes the first ones. Gigabytes in seconds."
+    tags: [unix]
+  - front: "In-memory hash vs sort"
+    back: "The hash has a working set equal to the distinct URLs: fine if it fits in RAM. The sort has no working set and spills to disk with mergesort, sequential access, parallel across cores. Same principle as the LSM-tree."
+    tags: [unix]
+  - front: "The distributed operating system"
+    back: "A batch framework has the same components as a single machine: a filesystem (DFS or object store), a scheduler (orchestrator) and programs that pass data to one another."
+    tags: [distributed]
+  - front: "Blocks of a DFS"
+    back: "Much bigger than in a local filesystem: 128 MB in HDFS, 4 MB in object stores versus 4 KB in ext4. Less metadata, fewer seeks. The last block can be partial."
+    tags: [distributed]
+  - front: "Components of a DFS"
+    back: "Data nodes that expose blocks over the network using their OS page cache, a metadata service (NameNode), a pluggable protocol like the VFS (S3 API, NFS). Blocks replicated or with erasure coding."
+    tags: [distributed]
+  - front: "Object store vs filesystem"
+    back: "Immutable objects with get and put, whole rewrite, no handles, locks or links. Directories are a convention in the name: recursive listing by prefix, empty directories impossible, non-atomic rename for every object."
+    tags: [distributed]
+  - front: "Data locality"
+    back: "A DFS like HDFS runs the task on the machine that has a copy of the file, with no network. Object stores separate storage and compute: more bandwidth but independent scalability."
+    tags: [distributed]
+  - front: "The three components of an orchestrator"
+    back: "Task executor on every node (kubelet, NodeManager) that launches and monitors tasks. Resource manager with the global view of the cluster, state in etcd or ZooKeeper. Scheduler that decides which tasks go on which nodes."
+    tags: [orchestration]
+  - front: "Why scheduling is hard"
+    back: "Balancing fairness and efficiency with limited resources: gang scheduling leaves nodes idle and risks deadlock, waiting leads to starvation, preempting wastes work. NP-hard, heuristics are used such as FIFO, DRF, quotas, bin-packing."
+    tags: [orchestration]
+  - front: "Job workflows"
+    back: "DAG of jobs where the output of one is the input of others, usually via the DFS to decouple them in time. Managed by a workflow scheduler (Airflow, Dagster, Prefect), not by the orchestrator, which works per job."
+    tags: [orchestration]
+  - front: "Spot instances and batch"
+    back: "Cheap VMs that can be killed at any moment. Batch is in no hurry and regenerates the output, so it exploits them well. But preemptions are more frequent than hardware faults."
+    tags: [orchestration, reliability]
+  - front: "Intermediate state and faults"
+    back: "MapReduce always writes it to the DFS: safe but expensive. Spark keeps it in memory with local spill and remembers how it computed it so as to recompute it. Flink takes periodic checkpoints."
+    tags: [reliability]
+  - front: "Mapper and reducer"
+    back: "The mapper extracts a key and a value from every record without state, zero or more pairs per record. The framework sorts by key. The reducer is called once per key with an iterator over the values. Mapper prepares, reducer processes."
+    tags: [mapreduce]
+  - front: "Why MapReduce parallelizes and retries freely"
+    back: "It comes from functional programming: without mutable state every call depends only on its input, so the framework runs in parallel and relaunches the same task elsewhere."
+    tags: [mapreduce]
+  - front: "Dataflow engine"
+    back: "Spark and Flink treat the entire workflow as one job, model the flow between stages, offer relational operators besides the per-record function, without the mandatory map/reduce alternation."
+    tags: [dataflow]
+  - front: "Advantages of dataflow engines"
+    back: "Sort only where needed, operators fused into one task, locality between producer and consumer, intermediate state in memory or on local disk, operators that start as soon as the input is ready, processes reused."
+    tags: [dataflow]
+  - front: "Shuffle"
+    back: "Distributed sort with sharded input and output, the basis of joins and aggregations. Nothing random about it: it produces a sorted order."
+    tags: [shuffle]
+  - front: "How the shuffle works"
+    back: "Every mapper writes one local file per reducer, choosing it by the hash of the key, sorted with the LSM technique. Every reducer copies its slice from all the mappers and merges them mergesort-style: equal keys adjacent."
+    tags: [shuffle]
+  - front: "Sort-merge join"
+    back: "Two mappers emit with the same key (user_id) from the two datasets. The shuffle brings them to the same reducer, with the secondary sort the user record first and then the events. One record in memory, no network requests."
+    tags: [shuffle]
+  - front: "Group by in MapReduce"
+    back: "Shuffle by the grouping key (URL), then the reducer iterates over the records of that key keeping counters per group."
+    tags: [shuffle]
+  - front: "SQL in batch"
+    back: "Lingua franca: less code, interactive use, and the query engine optimizes with a cost-based optimizer that chooses the join algorithm and reorders joins to minimize the intermediate data."
+    tags: [languages]
+  - front: "Convergence of batch and warehouse"
+    back: "Batch frameworks have SQL, Parquet and optimized engines. Cloud warehouses have scheduling, fault tolerance, shuffle, DFS and DataFrames. Not everything is SQL (graphs, ML, multimodal) and warehouses cost more."
+    tags: [languages]
+  - front: "Distributed vs local DataFrames"
+    back: "Local ones (Pandas) are indexed, ordered and execute immediately. Distributed ones (Spark) are neither indexed nor ordered and translate the calls into an optimized plan. Performance surprises when migrating."
+    tags: [languages]
+  - front: "Data lakehouse"
+    back: "SQL on a query engine that reads and writes on a DFS or object store, with a table format (Iceberg) and a catalog (Unity) for the metadata. Analytics on the same infrastructure as batch."
+    tags: [use-cases]
+  - front: "Bulk synchronous parallel"
+    back: "Pregel model for graphs in batch: traverse one edge at a time propagating information until convergence. Giraph, GraphX, Gelly."
+    tags: [use-cases]
+  - front: "Why not write to the production DB from the job"
+    back: "One request per record is very slow, many tasks in parallel overwhelm the DB, and external side effects break the all-or-nothing guarantee: a retried task duplicates the output."
+    tags: [use-cases]
+  - front: "Serving derived data via a stream"
+    back: "The job pushes the output into a Kafka topic from which Elasticsearch, Pinot, Druid ingest. Sequential writes, buffer, multiple consumers, DMZ. The job signals completion and consumers keep the data invisible until then."
+    tags: [use-cases]
+  - front: "Bulk import"
+    back: "Build a new database inside the job and import the files in bulk (Lightning, SST files in RocksDB). Very fast with an atomic switch between versions, but hard to update incrementally."
+    tags: [use-cases]

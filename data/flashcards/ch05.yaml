@@ -1,0 +1,111 @@
+chapter: 5
+title: Encoding and Evolution
+cards:
+  - front: "Backward compatibility"
+    back: "New code reads data written by old code. Easy: you know the old format and you handle it explicitly."
+    tags: [compatibility]
+  - front: "Forward compatibility"
+    back: "Old code reads data written by new code. Harder: the old code must ignore what it doesn't know without breaking."
+    tags: [compatibility]
+  - front: "Compatibility for an old client talking to a new server"
+    back: "Backward on the request and forward on the response. For a new client talking to an old server it is the reverse."
+    tags: [compatibility, services]
+  - front: "Why preserve unknown fields?"
+    back: "Old code that reads, modifies and writes back a record with a new field deletes it if the in-memory model doesn't keep the fields it doesn't know."
+    tags: [compatibility]
+  - front: "Encoding and decoding"
+    back: "Encoding (serialization, marshalling) translates from the in-memory representation to bytes. Decoding (parsing, deserialization) does the reverse. The book avoids serialization because in transactions it means something else."
+    tags: [encoding]
+  - front: "Why not use pickle or java.io.Serializable?"
+    back: "They tie you to one language, instantiate arbitrary classes on decoding opening the door to remote code execution, ignore versioning, and are slow and bloated. Only for transient purposes."
+    tags: [encoding, security]
+  - front: "The problem with numbers in JSON"
+    back: "It doesn't distinguish integers from floats and doesn't specify a precision. Above 2^53 an integer gets corrupted in JavaScript. X sends post IDs both as a number and as a string."
+    tags: [encoding]
+  - front: "Binary data in JSON and XML"
+    back: "They don't support byte strings. Base64 is used, which increases the size by about a third and requires the schema to know that it must be decoded."
+    tags: [encoding]
+  - front: "Open content model of JSON Schema"
+    back: "additionalProperties is true by default, so any undefined field is allowed. The schema describes what is not valid more than what is allowed."
+    tags: [encoding, schema]
+  - front: "Binary variants of JSON (MessagePack, CBOR, BSON)"
+    back: "Without a schema they must include the field names. The example record goes from 81 to 66 bytes: little gain and readability lost."
+    tags: [encoding]
+  - front: "Protocol Buffers"
+    back: "Binary format with a mandatory schema in an IDL and generated code. Fields are identified by numeric tags, not by names. Example record in 33 bytes."
+    tags: [protobuf]
+  - front: "In Protobuf what can never be changed?"
+    back: "The tag of a field, because it is the identity of the field in the bytes. Renaming is free. Removed tags are never reused and are declared reserved."
+    tags: [protobuf, compatibility]
+  - front: "How Protobuf achieves forward compatibility"
+    back: "Old code encounters an unknown tag, the type tells it how many bytes to skip, and the field is preserved instead of being lost."
+    tags: [protobuf, compatibility]
+  - front: "Risk of changing int32 to int64 in Protobuf"
+    back: "New code reads old data filling in with zeros. Old code reading a 64-bit value into a 32-bit variable truncates it."
+    tags: [protobuf, compatibility]
+  - front: "Avro"
+    back: "Binary format with a schema but without tags. The bytes are just values concatenated, with no field or type markers. The most compact: 32 bytes. Born in Hadoop in 2009."
+    tags: [avro]
+  - front: "Writer's schema and reader's schema"
+    back: "Avro decodes using the exact schema the data was written with and the schema the reader expects. It resolves the differences by matching fields by name: it ignores extra fields and fills in defaults for missing ones."
+    tags: [avro, compatibility]
+  - front: "Evolution rule in Avro"
+    back: "You can only add or remove fields with a default value. Null is not an implicit default: you need a union with null in first position."
+    tags: [avro, compatibility]
+  - front: "Where is the writer's schema in Avro?"
+    back: "At the start of a file with many records (object container file), as a version number in every record of a database with a schema registry, or negotiated on connection setup."
+    tags: [avro]
+  - front: "Why is Avro suited to dynamically generated schemas?"
+    back: "Without tags, the schema is generated from a relational database (one column one field) and regenerated on every change. With Protobuf someone would have to assign the tags by hand and never reuse the old ones."
+    tags: [avro, protobuf]
+  - front: "Merits of a binary format with a schema"
+    back: "Compactness without field names, documentation always up to date because without the schema you can't decode, compatibility check before deployment, generated code with type checking."
+    tags: [schema]
+  - front: "Data outlives code"
+    back: "A deployment replaces the code in minutes, but data from years ago stays in its original encoding. Databases put off the rewrite: compaction in the LSM, a column with a null default filled in on read in the relational DB."
+    tags: [databases, compatibility]
+  - front: "Writing to a database is..."
+    back: "Sending a message to your future self: you need backward compatibility. With rolling upgrades you also need forward compatibility, because old code will read data written by new code."
+    tags: [databases, compatibility]
+  - front: "REST"
+    back: "A design philosophy that uses the tools of HTTP: URLs for resources, caching, authentication, content negotiation. An API that follows it is RESTful. It treats state transfer as different from a function."
+    tags: [services]
+  - front: "OpenAPI and Protobuf as service IDLs"
+    back: "OpenAPI (Swagger) describes JSON web services. Protobuf describes gRPC services. FastAPI writes the code and generates the IDL; gRPC writes the IDL and generates the skeleton. From both come clients, SDKs, documentation."
+    tags: [services]
+  - front: "Location transparency"
+    back: "The RPC idea of making a remote call look like a local call. Fundamentally flawed: the network can lose requests, time out, duplicate on retry, have variable latency."
+    tags: [services]
+  - front: "The fourth outcome of a network call"
+    back: "Besides returning, throwing or never returning, it can time out without you knowing whether the request got through. Retrying can execute twice, you need idempotence."
+    tags: [services, distributed]
+  - front: "DNS for load balancing"
+    back: "Multiple IPs for one name, the client picks. But it propagates slowly and caches: with instances that start and stop often, clients see stale IPs."
+    tags: [services]
+  - front: "Service discovery"
+    back: "Centralized registry (etcd, ZooKeeper) where instances register with host, port and metadata and send heartbeats. The client queries it and connects directly. Suited to dynamic environments."
+    tags: [services]
+  - front: "Service mesh"
+    back: "Load balancer as a sidecar on client and server, local connections only. TLS handled by the mesh, observability of who calls whom. Istio, Linkerd. Complex, makes sense with Kubernetes."
+    tags: [services]
+  - front: "Simplifying assumption for API evolution"
+    back: "All servers are updated first, then the clients. So you need backward compatibility on requests and forward compatibility on responses."
+    tags: [services, compatibility]
+  - front: "Durable execution"
+    back: "The framework logs every RPC and state change like a WAL. On retry it re-executes the task but skips the calls that already succeeded, returning the logged results. Exactly-once for the workflow. Temporal, Restate."
+    tags: [workflows]
+  - front: "Constraints of durable execution"
+    back: "External services must still be idempotent. The replay demands the same calls in the same order, so a new version is deployed alongside. The code must be deterministic: no random numbers nor system clock."
+    tags: [workflows]
+  - front: "Advantages of a message broker over direct RPC"
+    back: "A buffer if the recipient is down, redelivery after a crash, no service discovery, the same message to multiple recipients, sender decoupled from whoever consumes."
+    tags: [events]
+  - front: "Queue vs topic"
+    back: "Queue: one of the consumers receives the message. Topic: all the subscribers receive it."
+    tags: [events]
+  - front: "Schema registry"
+    back: "Service next to the broker that stores all the valid versions of the message schemas and checks their compatibility. AsyncAPI is the equivalent of OpenAPI for messages."
+    tags: [events, schema]
+  - front: "Actor model"
+    back: "Every actor has private state, processes one message at a time, communicates via asynchronous messages that can be lost even locally. That is why location transparency works better than in RPC. Akka, Orleans, Erlang/OTP."
+    tags: [events]

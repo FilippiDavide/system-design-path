@@ -1,0 +1,117 @@
+chapter: 13
+title: Una filosofia dei sistemi a stream
+cards:
+  - front: "Perché ogni applicazione compone più sistemi"
+    back: "Nessuno strumento serve tutti i casi d'uso: ogni software è progettato per un pattern. Un'app complessa usa i dati in modi diversi (OLTP, full-text, warehouse, cache, ML) e deve combinare più tecnologie."
+    tags: [integration]
+  - front: "Principio per i flussi di dati"
+    back: "Far passare tutto l'input da un sistema che decide un ordine totale, poi derivare il resto nello stesso ordine. Se l'indice si aggiorna solo via CDC è interamente derivato e coerente. CDC o event sourcing è secondario."
+    tags: [integration]
+  - front: "Derived data vs transazioni distribuite"
+    back: "Stesso obiettivo: commit atomico contro retry deterministico più idempotenza. Differenza principale: le transazioni fanno leggere subito il valore scritto, i derivati sono asincroni e non lo garantiscono."
+    tags: [integration]
+  - front: "Limiti dell'ordine totale"
+    back: "Throughput oltre un nodo (log shardato), più regioni (un leader per regione), microservizi con stato separato, client con stato locale e offline. L'ordine totale è consenso e assume un nodo che regge tutto."
+    tags: [integration]
+  - front: "L'ex e il messaggio cattivo"
+    back: "De-friend e messaggio stanno in posti diversi; le notifiche sono un join e possono processare il messaggio prima del de-friend. Timestamp logici, loggare lo stato visto con un ID, CRDT per lo stato ma non per effetti esterni."
+    tags: [integration, causality]
+  - front: "Perché l'asincronia rende robusto"
+    back: "Un guasto in un consumer resta locale: il log fa da buffer. Le transazioni distribuite abortiscono se un partecipante fallisce e amplificano i guasti al resto del sistema."
+    tags: [integration]
+  - front: "Riprocessare per evolvere"
+    back: "Vecchia e nuova vista derivate dagli stessi dati, utenti spostati gradualmente, ogni passo reversibile. Come il terzo binario delle ferrovie inglesi per cambiare scartamento senza fermare le linee."
+    tags: [integration]
+  - front: "Kappa architecture"
+    back: "Batch e stream nello stesso sistema. Servono replay degli eventi storici attraverso lo stesso motore, exactly-once, e finestre per event time. Apache Beam su Flink o Dataflow. La lambda è caduta in disuso."
+    tags: [integration]
+  - front: "Cosa fa CREATE INDEX"
+    back: "Scansiona uno snapshot consistente, estrae e ordina i valori, scrive l'indice, applica il backlog dallo snapshot, poi lo tiene aggiornato. Identico a creare un follower e al bootstrap del CDC: il DB riprocessa e deriva una vista."
+    tags: [unbundling]
+  - front: "Il meta-database di tutto"
+    back: "Il flusso di dati di un'organizzazione è un enorme database: batch e stream processor sono trigger e manutenzione di viste, i sistemi derivati sono tipi di indice forniti da software e team diversi."
+    tags: [unbundling]
+  - front: "Federated vs unbundled database"
+    back: "Federated unifica le letture con un'interfaccia di query su motori diversi (Trino, foreign data wrapper), tradizione relazionale. Unbundled unifica le scritture collegando sistemi via CDC ed event log, tradizione Unix. Il problema duro sono le scritture."
+    tags: [unbundling]
+  - front: "Perché un log batte le transazioni fra tecnologie eterogenee"
+    back: "Senza protocollo di transazione standard fra sistemi di team diversi, un log ordinato con consumatori idempotenti è un'astrazione più semplice e fattibile."
+    tags: [unbundling]
+  - front: "Loose coupling a due livelli"
+    back: "Sistema: un consumer lento o caduto non ferma producer e altri consumer, il guasto è contenuto. Umano: componenti sviluppati da team diversi con interfacce chiare. Il log è potente (durabilità, ordine) e generale."
+    tags: [unbundling]
+  - front: "Quando l'unbundling è sbagliato"
+    back: "Se un prodotto fa tutto ciò che serve, usalo. Più parti in movimento costano operativamente, un sistema integrato è più prevedibile sul suo workload. Costruire per scala che non serve è ottimizzazione prematura. Larghezza, non profondità."
+    tags: [unbundling]
+  - front: "Il foglio di calcolo come modello"
+    back: "Cambi una cella e le formule dipendenti si ricalcolano. È ciò che vogliamo a livello di sistema: cambia un record, indici e cache si aggiornano da soli. VisiCalc lo faceva nel 1979."
+    tags: [dataflow]
+  - front: "Codice applicativo come funzione di derivazione"
+    back: "Indice secondario, full-text, modello ML, cache: tutti derivati da una trasformazione. Quando non è da catalogo serve codice custom, e i DB arrancano: trigger e stored procedure sono un ripensamento."
+    tags: [dataflow]
+  - front: "Separazione fra Church e stato"
+    back: "I DB sono pessimi ambienti di deployment, Kubernetes è bravo. Da qui servizi stateless con lo stato nel DB. Ma il DB diventa una variabile mutabile condivisa a cui non ti puoi abbonare: polli."
+    tags: [dataflow]
+  - front: "Le due proprietà che i broker a log danno al dataflow"
+    back: "Ordine stabile, così più viste derivate dallo stesso log restano coerenti fra loro. Tolleranza ai guasti, perché un messaggio perso disallinea per sempre. Molto meno care delle transazioni distribuite."
+    tags: [dataflow]
+  - front: "Acquisto in valuta: microservizi vs dataflow"
+    back: "Microservizi: interroga il servizio cambi, richiesta sincrona. Dataflow: abbonati allo stream dei cambi e tieni il tasso in un DB locale. La richiesta di rete più veloce è quella che non fai. In entrambi il join dipende dal tempo."
+    tags: [dataflow]
+  - front: "Write path e read path"
+    back: "Write path: tutto ciò che accade a un dato scritto fino ai derivati, eager. Read path: quando un utente chiede, lazy. Il derivato è dove si incontrano: trade-off fra lavoro in scrittura e in lettura."
+    tags: [dataflow]
+  - front: "Cosa fanno cache, indici e viste"
+    back: "Spostano il confine fra write path e read path: più lavoro in scrittura per risparmiare in lettura. Full-text: niente indice è grep, tutte le query precalcolate è impossibile, la cache delle query comuni sta in mezzo."
+    tags: [dataflow]
+  - front: "Stato sul client"
+    back: "Lo stato sul device è una cache dello stato del server; i pixel sono una vista materializzata del modello, che è una replica locale del datacenter. Server-sent events e WebSocket estendono il write path fino all'utente."
+    tags: [dataflow]
+  - front: "Perché il client offline è già risolto"
+    back: "È un consumer con un offset che riprende senza perdere nulla, come nel log-based broker. Ogni device è un piccolo subscriber di un piccolo stream."
+    tags: [dataflow]
+  - front: "Le letture sono eventi"
+    back: "Richieste di lettura come eventi sullo stesso stream processor, che risponde in uno stream di output. È uno stream-table join fra query e database. Una sottoscrizione è un join persistente. Aiuta provenienza e multishard."
+    tags: [dataflow]
+  - front: "Il trasferimento di 11 euro ritentato"
+    back: "La connessione cade dopo il COMMIT, il client riconnette e ritenta: fuori dallo scope di TCP e la transazione non è idempotente, 22 euro. Il 2PC non copre il salto browser-server. Serve un request ID end-to-end."
+    tags: [correctness]
+  - front: "Request ID con vincolo unique"
+    back: "UUID generato dal client nel form, inserito in una tabella requests con vincolo unique nella stessa transazione. Il secondo INSERT fallisce. I relazionali mantengono l'unicità anche a isolamento debole, un check-then-insert no."
+    tags: [correctness]
+  - front: "Argomento end-to-end"
+    back: "Saltzer, Reed, Clark 1984: una funzione si implementa completamente solo con la conoscenza delle applicazioni agli estremi; fornirla nel sistema di comunicazione non basta. Duplicati, checksum, cifratura. I meccanismi bassi riducono la probabilità."
+    tags: [correctness]
+  - front: "Unicità richiede consenso, ma scala"
+    back: "Un leader decide. Si sharda per il valore che deve essere unico: stesso username allo stesso shard per hash. Multi-leader asincrono escluso. Con un log shardato, un processor single-thread decide deterministicamente chi è primo."
+    tags: [correctness]
+  - front: "Pagamento multi-shard senza 2PC"
+    back: "Richiesta con ID sul log del conto sorgente. Il processor riserva e emette eventi con lo stesso ID verso sorgente, destinatario e commissioni. Ogni processor deduplica per ID. Requisiti: ordine di log, at-least-once, determinismo."
+    tags: [correctness]
+  - front: "Da dove viene l'atomicità senza transazioni"
+    back: "Dall'append della richiesta iniziale al log, un'azione atomica. Una volta nel log, tutti gli eventi a valle arriveranno, forse dopo recovery, forse duplicati ma ignorati per ID."
+    tags: [correctness]
+  - front: "Timeliness"
+    back: "L'utente vede uno stato aggiornato. La violazione è temporanea: aspetta e riprova. Linearizzabilità e read-after-write la danno. Ammessa dall'eventual consistency."
+    tags: [correctness]
+  - front: "Integrity"
+    back: "Nessuna corruzione: niente dati persi, contraddittori o falsi; i derivati corretti. La violazione è permanente e serve riparazione esplicita. Atomicità, durabilità ed exactly-once la preservano. Conta più della timeliness."
+    tags: [correctness]
+  - front: "Come i dataflow preservano l'integrità"
+    back: "L'operazione come un singolo messaggio scrivibile atomicamente, derivazioni deterministiche, request ID del client a tutti i livelli, messaggi immutabili riprocessabili."
+    tags: [correctness]
+  - front: "Vincoli laschi e costo della scusa"
+    back: "Overbooking, scoperto, merce venduta oltre lo stock: si corregge con una transazione compensativa. Se il costo della scusa è accettabile, scrivi in modo ottimistico e verifica dopo. Serve integrità, non tempestività del vincolo."
+    tags: [correctness]
+  - front: "Sistemi che evitano il coordinamento"
+    back: "Integrità senza commit atomico né linearizzabilità, vincoli laschi dove accettabile. Multi-leader fra datacenter con integrità forte e tempestività debole. Coordinamento sincrono solo dove serve. Non zero scuse, il punto giusto."
+    tags: [correctness]
+  - front: "Trust, but verify"
+    back: "Il modello di sistema è binario, la realtà probabilistica. HDFS e S3 rileggono i file in background e li confrontano con le repliche. Se vuoi sapere che i dati ci sono, leggili. Prova i backup."
+    tags: [auditing]
+  - front: "Progettare per l'auditabilità"
+    back: "Input come evento immutabile, stato derivato con funzioni deterministiche: stessi eventi, stesso codice, stesso stato. Hash sul log, riesecuzione dei processor per confronto, debugging con viaggio nel tempo."
+    tags: [auditing]
+  - front: "Blockchain e Merkle tree"
+    back: "Blockchain: log append-only con verifica crittografica e consenso bizantino, troppo overhead per quasi tutto. Merkle tree e certificate transparency usano gli stessi strumenti in leggero, con un leader per log."
+    tags: [auditing]

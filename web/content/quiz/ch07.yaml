@@ -1,0 +1,63 @@
+# Model answers for the chapter 7 self-check questions, in the same
+# order as the questions in docs/ch07-sharding.md.
+answers:
+  - section: 1-what-it-is-and-why-to-think-twice
+    pdf: 275
+    answer: |
+      Sharding exists for scalability of data volume and of writes: when the dataset no longer fits on one machine, or one machine cannot absorb the write throughput, you split the data into shards and put each shard on a different node. If the bottleneck is reads, you do not need any of that: add followers (replication, ch. 6) and serve reads from them.
+
+      The reason to wait is that sharding is heavy. You must pick a partition key that is hard to change afterwards, every query that does not know that key has to go to every shard, secondary indexes and joins become cross-shard problems, and a write that touches several shards needs a distributed transaction (ch. 8). The book's advice is therefore: only at large scale, and prefer read scaling as long as it is enough.
+  - section: by-key-range
+    pdf: 280
+    answer: |
+      With key-range sharding each shard holds a contiguous range of keys. If the key is the timestamp, all readings written right now have nearby keys and therefore fall into the same range: today's shard takes every write while the shards for past months sit idle. That is a hot spot, and adding nodes does not help because the load is not spread by the scheme.
+
+      The fix is to put something else first: prefix the sensor id to the timestamp, so the partition key spreads across sensors and inside each shard the readings stay sorted by time. What you lose is the cheap range query across sensors: "all sensors in March" is no longer one scan but one range query per sensor, and the results must be merged. Range queries for a single sensor over a time window stay efficient.
+  - section: by-hash-of-key
+    pdf: 282
+    answer: |
+      node = hash(key) % N spreads keys evenly, but the assignment depends on N. When N goes from 3 to 4 the remainder of almost every hash changes, so almost every key has to be copied to a different node: with ten hash values 0 to 9, seven of them move. Rebalancing therefore costs far more data movement than the one-node change justifies, and while it happens the network and the nodes are saturated.
+
+      A good rebalancing scheme moves only what is necessary (roughly 1/N of the data when the Nth node joins) and keeps everything else in place, which is exactly what a fixed number of shards or consistent hashing achieve.
+  - section: by-hash-of-key
+    pdf: 283
+    answer: |
+      You create many more shards than nodes, say 1,000 shards on 10 nodes, and assign keys with hash % 1000. There are two maps: key → shard, which never changes, and shard → node, which is the only thing that rebalancing touches. When a node is added it takes whole shards from the existing nodes until it has its share; when one is removed, the reverse. Keys never change shard, so the amount of data moved is close to the minimum, and during the transfer the old map keeps serving requests.
+
+      The limit is that the number of shards is chosen once, at the start, and must be guessed. You can never have more nodes than shards, and changing the number is an expensive resharding. Shards that are too large make moving and recovery slow; shards that are too small cost overhead; if the dataset grows by orders of magnitude there is no size that is right at both ends.
+  - section: by-hash-of-key
+    pdf: 284
+    answer: |
+      Hash-range sharding gives each shard a range of hash values instead of a range of keys. You gain the uniformity of hashing: similar keys get scattered hashes, so there are no hot spots from proximity, and you gain adaptive rebalancing: a shard that grows is split like in key-range sharding, so the number of shards follows the data and you do not have to guess it in advance.
+
+      You lose range queries on the partition key: nearby keys are on different shards, so a scan over a key interval has to hit every shard. The usual mitigation is a compound key where only the first part is hashed and the remaining columns are sorted within the shard, so range queries on those columns stay efficient. Key range gives you the opposite trade: order preserved and cheap scans, but the risk of hot spots when the keys are written in order.
+  - section: by-hash-of-key
+    pdf: 286
+    answer: |
+      Consistent hashing is a way of mapping keys onto a given number of shards with two properties: the load on each shard is roughly equal, and when the number of shards changes, the minimum number of keys moves, that is, only the keys that have to go to the new shard or away from the removed one; everything else stays put. Cassandra's token ranges are close to the original definition; rendezvous hashing and jump consistent hashing are alternatives in which a new node receives scattered individual keys rather than contiguous subranges.
+
+      "Consistent" here means that a key consistently maps to the same place when nodes come and go. It has nothing to do with replica consistency, consistency models or the C in ACID, which is why the book warns about the word.
+  - section: skewed-load-and-hot-keys
+    pdf: 287
+    answer: |
+      A hot key, like a celebrity's post, puts all its writes on one key and therefore on one shard no matter how good the hash is. Appending two random digits to the key turns it into 100 different keys that hash to different shards, so the writes are spread over up to 100 shards. That solves the write hot spot.
+
+      It makes reads worse: anyone reading the post must now read all 100 keys and combine them. It also adds bookkeeping: the application must know which keys are split, how to turn a regular key into a hot one and back, and when to merge it again once the post calms down after a couple of days. Keys that are hot for reads need a different strategy (replicas, caching) than keys that are hot for writes.
+  - section: rebalancing-automatic-or-manual
+    pdf: 288
+    answer: |
+      Rebalancing is expensive: it reroutes requests and moves a lot of data, which loads the network and the nodes. Automatic failure detection decides that a node is dead when it stops responding in time. Put the two together and a node that is merely slow or overloaded is declared dead, the cluster automatically rebalances its shards onto the other nodes, those nodes get more load plus the cost of the data transfer, become slow in turn, get declared dead too, and so on: a cascading failure.
+
+      That is why the book likes a human in the loop: the system proposes a rebalancing and an administrator confirms it. It is slower, but it avoids surprises, and it allows rebalancing before a known event rather than in the middle of the overload.
+  - section: 3-request-routing
+    pdf: 289
+    answer: |
+      The three approaches are: (1) the client contacts any node, and every node knows the map and forwards the request to the right one; (2) a routing tier, a shard-aware router that knows the map and sends each request on, as MongoDB's mongos does; (3) an informed client that holds the map and goes directly to the right node. In each case the routing must know both key → shard and shard → node.
+
+      The authoritative map usually lives in a coordination service such as ZooKeeper or etcd, which relies on consensus (ch. 10): nodes register, the service keeps the assignment, and the routing tier or the clients subscribe and are notified of changes. Some systems embed Raft for this (Kafka, YugabyteDB, TiDB), MongoDB has its own config servers, and Riak uses gossip between nodes, which is weaker and allows split brain but is acceptable for a leaderless store.
+  - section: 4-secondary-indexes
+    pdf: 292
+    answer: |
+      A local (document-partitioned) index is kept by each shard for its own records only. The write is cheap: it touches one shard, and the record and its index entries can be updated in one local transaction. The read pays: without the partition key you must query every shard and gather the results (scatter/gather), the slowest shard sets the latency, and adding shards does not increase query throughput.
+
+      A global (term-partitioned) index covers all records and is sharded by the indexed value. The read is cheap: one index shard returns the postings list, then the records are fetched from their shards. The write pays: a record has several terms that live on different index shards, so a single update touches several shards and needs either a distributed transaction or an asynchronous index that readers may see stale, as in DynamoDB. Global pays off with many more reads than writes and short postings lists.

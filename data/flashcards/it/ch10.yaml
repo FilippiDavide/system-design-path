@@ -1,0 +1,123 @@
+chapter: 10
+title: Consistenza e consenso
+cards:
+  - front: "Linearizzabilità"
+    back: "Il sistema si comporta come se esistesse una sola copia dei dati e ogni operazione fosse atomica. Appena una scrittura è completata tutti la vedono. È una garanzia di recenza, il modello di consistenza più forte in uso comune."
+    tags: [linearizability]
+  - front: "Il vincolo in più oltre a vecchio-o-nuovo"
+    back: "Esiste un istante in cui il valore scatta atomicamente, e dopo che una read qualsiasi ha visto il nuovo valore tutte le read successive devono vederlo, anche se la write non è finita. Il valore non può oscillare."
+    tags: [linearizability]
+  - front: "Linearizzabilità vs serializzabilità"
+    back: "Serializzabilità: isolamento di transazioni su più oggetti, come se in qualche ordine seriale, ammette letture stantie. Linearizzabilità: un registro, recenza, non raggruppa operazioni e non previene il write skew. Insieme: strict serializability."
+    tags: [linearizability, transactions]
+  - front: "Quando serve la linearizzabilità"
+    back: "Lock e elezione del leader, vincoli di unicità rigidi (username, posto a sedere, stock), e race fra canali di comunicazione incrociati come file storage più coda."
+    tags: [linearizability]
+  - front: "Race fra canali incrociati"
+    back: "Il web server scrive un video sul file storage e manda un messaggio in coda. Se la coda è più veloce della replica dello storage, il transcoder legge un file vecchio. Due canali senza garanzia di recenza. Come la voce di Aaliyah a Bryce."
+    tags: [linearizability]
+  - front: "Chi è linearizzabile fra i modelli di replica"
+    back: "Single-leader potenzialmente, se tutto passa dal leader e sai chi è. Consenso probabilmente. Multi-leader no. Leaderless probabilmente no, anche con quorum."
+    tags: [linearizability, replication]
+  - front: "Perché il quorum non basta per la linearizzabilità"
+    back: "Una write in corso arriva alle repliche in tempi diversi. A legge da due repliche e vede il nuovo valore, B inizia dopo A, legge da altre due e vede il vecchio. w + r > n rispettato ma non linearizzabile. Servirebbe read repair sincrono, e comunque niente CAS."
+    tags: [linearizability, replication]
+  - front: "CAP, formulazione corretta"
+    back: "Consistent o available quando partizionato. Le partizioni non si scegliono, succedono. A rete sana hai entrambe, a rete rotta scegli. Pick two of three è fuorviante."
+    tags: [cap]
+  - front: "Perché CAP ha poco valore pratico"
+    back: "Un solo modello (linearizzabilità), un solo guasto (partizioni, meno dell'8% degli incidenti), niente su ritardi e nodi morti, definizione di disponibilità non comune, molti sistemi né CP né AP. Superato da risultati più precisi."
+    tags: [cap]
+  - front: "PACELC"
+    back: "Durante una partizione scegli fra availability e consistency; else, senza partizione, scegli fra latenza e consistency. Generalizzazione di CAP con gli stessi difetti di definizione."
+    tags: [cap]
+  - front: "Il costo vero della linearizzabilità"
+    back: "Latenza, non tolleranza ai guasti. Nemmeno la RAM multi-core è linearizzabile, per performance. Attiya e Welch: il response time è almeno proporzionale all'incertezza dei ritardi di rete. Nessun algoritmo più veloce esiste."
+    tags: [linearizability]
+  - front: "Autoincrement su un nodo"
+    back: "Linearizzabile: fetch-and-add atomico, se A finisce prima che B inizi l'ID di B è maggiore. Ma single point of failure, lento da altre regioni, collo di bottiglia."
+    tags: [ids]
+  - front: "ID generator distribuiti e ordine"
+    back: "Shardati (pari e dispari), blocchi preallocati, UUID v4 casuali, timestamp reso unico (UUID v7, Snowflake, ULID): tutti unici, nessuno con ordine coerente con la causalità né linearizzabile."
+    tags: [ids]
+  - front: "Orologio logico"
+    back: "Algoritmo che conta eventi, non secondi. Timestamp compatti e unici, totalmente ordinati, coerenti con la causalità: se A happens-before B allora ts(A) < ts(B)."
+    tags: [clocks]
+  - front: "Lamport clock"
+    back: "Timestamp = (contatore, ID nodo). Il nodo incrementa quando genera; quando vede un timestamp altrui maggiore alza il proprio contatore. Confronto: contatore poi ID. Ordine totale coerente con la causalità, non linearizzabile."
+    tags: [clocks]
+  - front: "Limiti del Lamport clock"
+    back: "Nessun legame con il tempo fisico, non puoi cercare per data. Due nodi che non comunicano mai hanno contatori scollegati. Ordina i concorrenti arbitrariamente senza dire che erano concorrenti."
+    tags: [clocks]
+  - front: "Hybrid logical clock"
+    back: "Conta microsecondi come un clock fisico, si allinea in avanti sui timestamp altrui, si incrementa a ogni generazione quindi monotono anche se il clock fisico salta indietro. Serve solo NTP approssimativo. CockroachDB."
+    tags: [clocks]
+  - front: "Lamport e HLC vs vector clock"
+    back: "Lamport e HLC danno un ordine totale coerente con la causalità ma non distinguono i concorrenti. Il vector clock tiene un contatore per nodo e rileva la concorrenza, ma occupa molto più spazio."
+    tags: [clocks]
+  - front: "La foto imbarazzante"
+    back: "Profilo privato dal portatile, foto dal telefono, due DB con HLC. Il DB delle foto non ha mai letto quello degli account e assegna alla foto un timestamp minore. Uno snapshot fra i due vede l'account pubblico e la foto. Serve un ID generator linearizzabile."
+    tags: [ids, clocks]
+  - front: "ID generator linearizzabile in pratica"
+    back: "Un nodo che incrementa, persiste e replica con single-leader. Timestamp oracle di TiDB. Ottimizzazione: batch di ID persistiti insieme, al crash se ne saltano alcuni. Non si sharda né si distribuisce fra regioni."
+    tags: [ids]
+  - front: "Perché un clock linearizzabile non basta per i vincoli"
+    back: "Vince il timestamp più basso, ma un nodo non sa di avere il più basso finché non sente tutti gli altri. Se uno è morto o irraggiungibile tutto si ferma. Serve il consenso."
+    tags: [ids, consensus]
+  - front: "FLP"
+    back: "Nessun algoritmo deterministico garantisce il consenso se un nodo può crashare. Vale nel modello asincrono puro senza timeout. Con timeout per sospettare i crash, o numeri casuali, il consenso è risolvibile. Non garantisce la terminazione, non vieta di decidere."
+    tags: [consensus]
+  - front: "Le quattro proprietà del consenso"
+    back: "Uniform agreement (nessuno decide diversamente), integrity (non si cambia idea), validity (il valore era stato proposto): safety. Termination (chi non crasha prima o poi decide): liveness."
+    tags: [consensus]
+  - front: "Quanti nodi servono"
+    back: "Almeno una maggioranza funzionante per la terminazione. Le proprietà di safety reggono sempre, anche se la maggioranza cade: un outage ferma il sistema, non lo corrompe."
+    tags: [consensus]
+  - front: "Problemi equivalenti al consenso"
+    back: "CAS linearizzabile, shared log (total order broadcast), atomic commitment. Una soluzione per uno si converte in soluzione per gli altri. Fetch-and-add solo per due nodi."
+    tags: [consensus]
+  - front: "CAS come consenso"
+    back: "Registro a null, ognuno fa CAS(null, proposta), il valore finale è deciso. Al contrario, le CAS con lo stesso valore atteso propongono via consenso e vince quello deciso."
+    tags: [consensus]
+  - front: "Shared log"
+    back: "Più nodi chiedono di appendere, tutti leggono le stesse entry nello stesso ordine. Proprietà: eventual append, consegna affidabile, append-only, agreement sul prefisso, validity. Implementato con total order broadcast."
+    tags: [consensus]
+  - front: "Consensus number del fetch-and-add"
+    back: "2. Chi legge 0 vince ma gli altri non sanno chi ha vinto, e se il vincitore crasha restano appesi. Con esattamente due proponenti chi legge 1 decide il valore dell'altro. CAS e shared log hanno consensus number infinito."
+    tags: [consensus]
+  - front: "Atomic commitment vs consenso"
+    back: "Nel consenso va bene qualsiasi valore proposto. Nel commit atomico se uno vota abort tutti abortiscono (validity) e se tutti votano commit senza timeout si committa (nontriviality). Equivalenti comunque."
+    tags: [consensus, transactions]
+  - front: "State machine replication"
+    back: "Ogni entry del shared log è una scrittura, ogni replica applica le stesse scritture nello stesso ordine con logica deterministica, tutte convergono. È l'event sourcing. Con stored procedure deterministiche dà transazioni serializzabili."
+    tags: [consensus]
+  - front: "Cosa si costruisce sul shared log"
+    back: "Single-value e CAS: il primo valore nel log. Molte istanze: il primo con quel numero di posto. Fetch-and-add: somma delle entry. Fencing token: numero di sequenza delle entry, zxid in ZooKeeper."
+    tags: [consensus]
+  - front: "Epoch"
+    back: "Ballot in Paxos, view in Viewstamped Replication, term in Raft. Il consenso non garantisce un solo leader alla volta ma un leader unico per epoch. In conflitto vince l'epoch più alto."
+    tags: [consensus]
+  - front: "I due round di voto"
+    back: "Uno per eleggere il leader, uno per ogni entry che il leader vuole appendere. Un nodo vota sì solo se non conosce un epoch superiore. I quorum devono sovrapporsi. Ogni entry è replicata a un quorum prima della conferma."
+    tags: [consensus]
+  - front: "Consenso vs 2PC"
+    back: "Nel consenso chiunque può avviare un'elezione e basta un quorum. In 2PC solo il coordinatore chiede voti e servono tutti i sì. Protocolli molto diversi nonostante i due round."
+    tags: [consensus, transactions]
+  - front: "Unclean leader election"
+    back: "Opzione di Kafka: qualsiasi replica può diventare leader anche se non aggiornata. Più disponibile, ma la teoria del consenso non si applica più e si rischia perdita di dati."
+    tags: [consensus]
+  - front: "Costi del consenso"
+    back: "Maggioranza stretta (3 per un guasto, 5 per due), ogni operazione parla con un quorum quindi aggiungere nodi rallenta, in partizione solo la maggioranza avanza, timeout difficili fra regioni, Raft sensibile a un link inaffidabile."
+    tags: [consensus]
+  - front: "Coordination service"
+    back: "ZooKeeper, etcd, Consul. Pochi dati in memoria replicati con consenso per coordinare altri sistemi. Lock e lease, fencing token, failure detection con sessioni e heartbeat, notifiche di cambiamento. Modellati su Chubby."
+    tags: [coordination]
+  - front: "Cosa non richiede consenso in un coordination service"
+    back: "Failure detection e notifiche di cambiamento. Richiedono consenso lock, lease, CAS e fencing token."
+    tags: [coordination]
+  - front: "Esternalizzare il consenso"
+    back: "Un coordination service gira su 3 o 5 nodi e coordina un sistema di migliaia. Il consenso su migliaia di nodi sarebbe inefficiente. I dati cambiano in minuti o ore, non migliaia di volte al secondo."
+    tags: [coordination]
+  - front: "Service discovery con il consenso"
+    back: "Spesso overkill: non serve linearizzabilità, serve disponibilità e velocità. Meglio cache con TTL e bypass al fallimento, come il DNS. ZooKeeper ha gli observer: repliche che ricevono il log senza votare."
+    tags: [coordination]

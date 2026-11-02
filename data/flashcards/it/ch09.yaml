@@ -1,0 +1,123 @@
+chapter: 9
+title: I guai dei sistemi distribuiti
+cards:
+  - front: "Fallimento parziale"
+    back: "In un sistema distribuito alcune parti sono rotte in modo imprevedibile mentre altre funzionano. Non deterministico: la stessa operazione a volte riesce e a volte no, e non sai nemmeno se è riuscita."
+    tags: [faults]
+  - front: "Perché un computer singolo preferisce crashare?"
+    back: "Scelta di progetto: un risultato sbagliato è più difficile da gestire di un crash. Nasconde la realtà fisica dietro un modello ideale e deterministico."
+    tags: [faults]
+  - front: "Rete a pacchetti asincrona"
+    back: "Nessuna garanzia su quando un messaggio arriva né se arriva. Request persa, in coda, nodo morto, nodo in pausa, response persa, response in ritardo: tutti indistinguibili. L'unico strumento è il timeout."
+    tags: [network]
+  - front: "Perché TCP non rende la rete affidabile"
+    back: "Non distingue pacchetto perso da ack perso, non riattacca i cavi, deduplica solo dentro una connessione, un ack significa che il kernel ha ricevuto non l'applicazione. Serve una risposta dall'applicazione."
+    tags: [network]
+  - front: "Guasti di rete in pratica"
+    back: "Circa 12 al mese in un datacenter medio. Causa principale gli errori umani di configurazione, non gli apparati. Round-trip di minuti agli alti percentili. Guasti asimmetrici: A parla con B e B con C ma A non con C."
+    tags: [network]
+  - front: "Trade-off del timeout"
+    back: "Lungo: recovery lenta. Corto: nodi vivi dichiarati morti per un picco, azioni fatte due volte, carico spostato che peggiora un sistema in difficoltà fino alla cascading failure."
+    tags: [network]
+  - front: "Da dove viene la variabilità dei ritardi"
+    back: "Dalle code: nello switch quando più nodi mandano alla stessa destinazione, nel sistema operativo se le CPU sono occupate, nell'hypervisor durante le pause della VM, nel mittente per il rate limiting di TCP."
+    tags: [network]
+  - front: "Quando usare UDP"
+    back: "Quando un dato in ritardo non vale nulla, come in VoIP. Niente ritrasmissione né flow control, meno variabilità. Il retry avviene a livello umano."
+    tags: [network]
+  - front: "Come scegliere il timeout"
+    back: "Sperimentalmente, misurando la distribuzione dei round-trip su molte macchine e a lungo. Meglio adattarlo in continuo alla distribuzione osservata: Phi Accrual failure detector in Akka e Cassandra."
+    tags: [network]
+  - front: "Commutazione di circuito vs di pacchetto"
+    back: "Il circuito riserva banda lungo tutto il percorso: niente code, ritardo limitato, ma utilizzazione bassa. Il pacchetto spartisce dinamicamente: code e ritardi illimitati, ma utilizzazione massima. Scelta economica, non legge di natura."
+    tags: [network]
+  - front: "Time-of-day clock"
+    back: "Data e ora di calendario, sincronizzato con NTP, comparabile fra macchine in teoria. Può saltare indietro per reset NTP, leap second, DST. Inadatto a misurare durate."
+    tags: [clocks]
+  - front: "Monotonic clock"
+    back: "Contatore che va solo avanti, valore assoluto senza significato, non confrontabile fra macchine. NTP può solo rallentarlo o accelerarlo dello 0,05%. Giusto per timeout e durate."
+    tags: [clocks]
+  - front: "Drift del quarzo"
+    back: "Fino a 200 ppm secondo Google: 6 ms ogni 30 secondi di risync, 17 secondi al giorno. Limita la precisione anche quando tutto funziona."
+    tags: [clocks]
+  - front: "Perché un orologio sbagliato è pericoloso"
+    back: "Non si nota. CPU o rete rotte non funzionano e si vedono. Un quarzo che deriva produce perdita di dati subdola, non un crash. Monitora gli offset ed espelli i nodi che derivano troppo."
+    tags: [clocks]
+  - front: "LWW con clock fisici perde scritture"
+    back: "Un incremento causalmente successivo può avere timestamp minore per uno skew di pochi ms e viene scartato. Un nodo con clock indietro non può sovrascrivere finché lo skew non è trascorso. Cassandra e ScyllaDB fanno così."
+    tags: [clocks, replication]
+  - front: "Orologi logici vs fisici"
+    back: "Logici: contatori che danno solo l'ordine relativo degli eventi. Fisici: time-of-day e monotonic, misurano tempo reale. Per ordinare eventi servono i logici: l'errore di clock dovrebbe essere molto minore del ritardo di rete."
+    tags: [clocks]
+  - front: "Lettura di clock come intervallo"
+    back: "La precisione è di decine di ms anche con risoluzione in nanosecondi. Una lettura è un intervallo di confidenza largo quanto drift più incertezza del server più round trip. TrueTime e ClockBound restituiscono earliest e latest."
+    tags: [clocks]
+  - front: "Come Spanner usa TrueTime"
+    back: "Se due intervalli non si sovrappongono l'ordine è certo. Spanner aspetta la larghezza dell'intervallo prima di committare una transazione read/write. GPS e orologi atomici servono solo a tenere l'attesa corta."
+    tags: [clocks, transactions]
+  - front: "Lease"
+    back: "Lock con scadenza. Un solo titolare alla volta, va rinnovato periodicamente. Se il titolare si ferma, alla scadenza un altro subentra."
+    tags: [clocks, locks]
+  - front: "I due difetti del loop del lease"
+    back: "Confronta una scadenza calcolata su un'altra macchina con il clock locale. Assume che fra il controllo di validità e l'elaborazione passi poco tempo: una pausa di 15 secondi lì fa processare con lease scaduto."
+    tags: [clocks, locks]
+  - front: "Cause realistiche di pausa di un processo"
+    back: "Garbage collection stop-the-world, VM sospesa o migrata, portatile chiuso, context switch e steal time, I/O sincrono anche implicito, page fault e thrashing, SIGSTOP per sbaglio. Il thread riparte senza sapere di essersi fermato."
+    tags: [clocks]
+  - front: "Hard real-time"
+    back: "Risposta entro una scadenza garantita in ogni circostanza: RTOS, librerie con worst-case documentato, niente allocazione dinamica. Costosissimo, throughput più basso. Non economico per il server-side."
+    tags: [clocks]
+  - front: "Limitare l'impatto della GC"
+    back: "Collector moderni, linguaggi senza GC, pool di oggetti, oppure trattare la GC come interruzione pianificata: avvisare, deviare il traffico, raccogliere. Variante: riavvio periodico prima della full GC."
+    tags: [clocks]
+  - front: "Perché un nodo non può fidarsi di sé"
+    back: "Può ricevere e non essere sentito, può essere in pausa senza saperlo. Le decisioni le prende un quorum, di solito la maggioranza, perché può esistere una sola maggioranza. Il nodo dichiarato morto deve farsi da parte."
+    tags: [truth]
+  - front: "Zombie"
+    back: "Ex titolare di un lease che non sa di averlo perso e continua ad agire come titolare. Non si può escludere; si deve impedirgli di far danni con il fencing."
+    tags: [locks]
+  - front: "Perché STONITH non basta"
+    back: "Spegnere lo zombie non protegge da una scrittura già in rete e ritardata di un minuto, i nodi possono spegnersi a vicenda, e spesso quando lo rilevi i dati sono già corrotti."
+    tags: [locks]
+  - front: "Fencing token"
+    back: "Numero crescente restituito a ogni concessione del lock, incluso in ogni scrittura. Lo storage rifiuta i token più bassi di uno già visto. Ferma zombie e richieste ritardate. Sequencer in Chubby, epoch in Kafka, term in Raft."
+    tags: [locks]
+  - front: "Fencing con più repliche"
+    back: "Token nei bit più significativi del timestamp: ogni timestamp del nuovo titolare supera quelli del vecchio. Se lo zombie scrive su una replica non raggiunta, il quorum read preferisce il timestamp maggiore e read repair sistema."
+    tags: [locks, replication]
+  - front: "Fault bizantino"
+    back: "Un nodo che mente o manda risposte arbitrarie, come voti contraddittori. Il libro assume nodi inaffidabili ma onesti. Serve in aerospazio e fra parti che non si fidano, non nei datacenter."
+    tags: [byzantine]
+  - front: "Perché la tolleranza bizantina non protegge dai bug"
+    back: "Richiede più di due terzi di nodi sani. Con lo stesso software ovunque, lo stesso bug è ovunque. Servirebbero quattro implementazioni indipendenti. Stesso discorso per gli attaccanti."
+    tags: [byzantine]
+  - front: "Bugie deboli"
+    back: "Pacchetti corrotti che sfuggono ai checksum TCP, input malevolo, server NTP sbagliati. Difese semplici: checksum applicativi, sanitizzazione, più server NTP con scarto degli outlier."
+    tags: [byzantine]
+  - front: "Modelli temporali"
+    back: "Sincrono: ritardi, pause e drift limitati, irrealistico. Parzialmente sincrono: sincrono quasi sempre con eccezioni finite, il più utile. Asincrono: nessuna assunzione, nemmeno un clock, molto restrittivo."
+    tags: [models]
+  - front: "Modelli di guasto dei nodi"
+    back: "Crash-stop: muore per sempre. Crash-recovery: torna con lo storage stabile intatto. Degradato o limping: risponde agli health check ma troppo lento per lavorare. Bizantino: qualsiasi cosa."
+    tags: [models]
+  - front: "Safety"
+    back: "Se violata puoi indicare il momento esatto e il danno è irreversibile. Deve valere sempre, anche se tutti i nodi crashano. Unicità e monotonia dei fencing token."
+    tags: [models]
+  - front: "Liveness"
+    back: "Può non valere ora ma c'è speranza per il futuro. Contiene quasi sempre eventually. Ammette condizioni come la maggioranza viva e la rete che si riprende. L'eventual consistency è liveness."
+    tags: [models]
+  - front: "Modello vs realtà"
+    back: "Lo storage stabile può corrompersi, un nodo con amnesia rompe il quorum. L'implementazione deve gestire anche l'impossibile, fosse pure con un exit e un umano che pulisce."
+    tags: [models]
+  - front: "Model checking"
+    back: "Specifica in TLA+ o simili, esplorazione sistematica degli stati di un modello semplificato. Spazio infinito quindi limitato, e il modello può divergere dal codice. Usato da CockroachDB, TiDB, Kafka."
+    tags: [testing]
+  - front: "Fault injection"
+    back: "Iniettare guasti reali in un sistema in esecuzione: kill, umount, firewall. Jepsen, Chaos Monkey. Efficace ma scomodo e non riproducibile con precisione."
+    tags: [testing]
+  - front: "Deterministic simulation testing"
+    back: "Esegue il codice vero con rete, I/O e clock finti controllati dal simulatore. Ogni esecuzione è riproducibile e più veloce del tempo reale. FoundationDB, TigerBeetle, MadSim, Antithesis."
+    tags: [testing]
+  - front: "Il potere del determinismo"
+    back: "Il non determinismo è la radice dei problemi distribuiti. Renderlo deterministico torna ovunque: replay dell'event log, durable execution, state machine replication, stored procedure, DST. Attenzione a hash table e limiti di risorse."
+    tags: [testing]

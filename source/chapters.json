@@ -1,0 +1,128 @@
+[
+  {
+    "number": 1,
+    "title": "Trade-Offs in Data Systems Architecture",
+    "file": "ch01-trade-offs-in-data-systems-architecture.txt",
+    "first_page": 25,
+    "last_page": 56,
+    "pages": 32,
+    "words": 12667
+  },
+  {
+    "number": 2,
+    "title": "Defining Nonfunctional Requirements",
+    "file": "ch02-defining-nonfunctional-requirements.txt",
+    "first_page": 57,
+    "last_page": 88,
+    "pages": 32,
+    "words": 12407
+  },
+  {
+    "number": 3,
+    "title": "Data Models and Query Languages",
+    "file": "ch03-data-models-and-query-languages.txt",
+    "first_page": 89,
+    "last_page": 138,
+    "pages": 50,
+    "words": 17906
+  },
+  {
+    "number": 4,
+    "title": "Storage and Retrieval",
+    "file": "ch04-storage-and-retrieval.txt",
+    "first_page": 139,
+    "last_page": 184,
+    "pages": 46,
+    "words": 17470
+  },
+  {
+    "number": 5,
+    "title": "Encoding and Evolution",
+    "file": "ch05-encoding-and-evolution.txt",
+    "first_page": 185,
+    "last_page": 220,
+    "pages": 36,
+    "words": 13047
+  },
+  {
+    "number": 6,
+    "title": "Replication",
+    "file": "ch06-replication.txt",
+    "first_page": 221,
+    "last_page": 274,
+    "pages": 54,
+    "words": 20877
+  },
+  {
+    "number": 7,
+    "title": "Sharding",
+    "file": "ch07-sharding.txt",
+    "first_page": 275,
+    "last_page": 300,
+    "pages": 26,
+    "words": 9349
+  },
+  {
+    "number": 8,
+    "title": "Transactions",
+    "file": "ch08-transactions.txt",
+    "first_page": 301,
+    "last_page": 368,
+    "pages": 68,
+    "words": 26696
+  },
+  {
+    "number": 9,
+    "title": "The Trouble with Distributed Systems",
+    "file": "ch09-the-trouble-with-distributed-systems.txt",
+    "first_page": 369,
+    "last_page": 424,
+    "pages": 56,
+    "words": 22972
+  },
+  {
+    "number": 10,
+    "title": "Consistency and Consensus",
+    "file": "ch10-consistency-and-consensus.txt",
+    "first_page": 425,
+    "last_page": 474,
+    "pages": 50,
+    "words": 20191
+  },
+  {
+    "number": 11,
+    "title": "Batch Processing",
+    "file": "ch11-batch-processing.txt",
+    "first_page": 475,
+    "last_page": 510,
+    "pages": 36,
+    "words": 14134
+  },
+  {
+    "number": 12,
+    "title": "Stream Processing",
+    "file": "ch12-stream-processing.txt",
+    "first_page": 511,
+    "last_page": 562,
+    "pages": 52,
+    "words": 21124
+  },
+  {
+    "number": 13,
+    "title": "A Philosophy of Streaming Systems",
+    "file": "ch13-a-philosophy-of-streaming-systems.txt",
+    "first_page": 563,
+    "last_page": 608,
+    "pages": 46,
+    "words": 19350
+  },
+  {
+    "number": 14,
+    "title": "Doing the Right Thing",
+    "file": "ch14-doing-the-right-thing.txt",
+    "first_page": 609,
+    "last_page": 626,
+    "pages": 18,
+    "words": 7609
+  }
+]

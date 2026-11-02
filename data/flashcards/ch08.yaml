@@ -1,0 +1,147 @@
+chapter: 8
+title: Transactions
+cards:
+  - front: "Why do transactions exist?"
+    back: "To simplify the programming model. A huge class of errors (crashes, network, full disk, concurrency) is reduced to an abort, and the application retries."
+    tags: [acid]
+  - front: "ACID atomicity"
+    back: "If something goes wrong halfway through, the transaction is aborted and all its writes are undone. Nothing to do with concurrency. The right name would be abortability."
+    tags: [acid]
+  - front: "ACID consistency"
+    back: "The application's invariants remain true at the end of the transaction. The DB enforces simple constraints, the complex ones are the app's responsibility. It is not a property of the database."
+    tags: [acid]
+  - front: "ACID isolation"
+    back: "Concurrent transactions do not step on each other's toes. The ideal is serializability, as if they had run one at a time. Many DBs use weaker levels; Oracle calls snapshot isolation serializable."
+    tags: [acid]
+  - front: "Durability: why nothing is perfect"
+    back: "SSDs that violate fsync, buggy firmware, silent corruption, worn SSDs that lose data while powered off, correlated faults that take down all replicas. Disk, replication and backups must be used together."
+    tags: [acid, reliability]
+  - front: "Atomic operation vs transaction"
+    back: "Increment and compare-and-set avoid the read-modify-write on one object, but they are not transactions. Cassandra's lightweight transactions are linearizable on a single object only."
+    tags: [acid]
+  - front: "When multi-object transactions are needed"
+    back: "Foreign keys and edges that must remain valid, denormalized data to be updated together, secondary indexes to be updated along with the record."
+    tags: [acid]
+  - front: "Limits of retrying an aborted transaction"
+    back: "Commit succeeded but ack lost executes twice. Overload errors get worse. Only transient errors, never constraint violations. External side effects happen anyway. The client can crash during the retry."
+    tags: [acid]
+  - front: "Read committed"
+    back: "No dirty reads (you only see committed data) and no dirty writes (you only overwrite committed data). Default in Oracle, PostgreSQL, SQL Server."
+    tags: [isolation]
+  - front: "Dirty read"
+    back: "Reading the writes of a transaction that has not yet committed. You would see a half-done transaction, or data that is later rolled back (cascading aborts)."
+    tags: [isolation, anomalies]
+  - front: "Dirty write"
+    back: "Overwriting a write that has not yet committed. Two buyers of the same car: the sale to one, the invoice to the other. Prevented with a row-level lock held until commit or abort."
+    tags: [isolation, anomalies]
+  - front: "How dirty reads are prevented without read locks"
+    back: "The DB keeps two versions of the row, the committed one and the one in progress, and gives readers the old one. Read locks would let one long transaction block all reads."
+    tags: [isolation]
+  - front: "Read skew"
+    back: "Seeing parts of the database at different instants. Two accounts of 500 with a transfer of 100 in progress: you read 500 and 400, total 900. Every value was committed. Catastrophic for backups and analytic queries."
+    tags: [isolation, anomalies]
+  - front: "Snapshot isolation"
+    back: "Each transaction reads from a consistent snapshot of the DB at the instant it started. Readers do not block writers and vice versa. Implemented with MVCC."
+    tags: [isolation]
+  - front: "MVCC"
+    back: "Multi-version concurrency control: several committed versions of each row, tagged with inserted_by and deleted_by (txid). An update is a delete plus an insert. A garbage collector removes the versions nobody can see anymore."
+    tags: [isolation]
+  - front: "MVCC visibility rules"
+    back: "Ignore the writes of transactions in progress at the start of mine, those with a later txid, those that aborted. A row is visible if the transaction that inserted it had committed and the one that deleted it had not, at the start of my transaction."
+    tags: [isolation]
+  - front: "Why repeatable read means nothing"
+    back: "The 1975 SQL standard does not know snapshot isolation. PostgreSQL calls it repeatable read, Oracle serializable, in MySQL repeatable read is weaker, in Db2 it is serializability."
+    tags: [isolation]
+  - front: "Lost update"
+    back: "Two clients do a read-modify-write on the same value and the second overwrites without incorporating the first. Counters, balances, wiki pages saved as a whole."
+    tags: [isolation, anomalies]
+  - front: "Four remedies for lost updates"
+    back: "Atomic write operations (UPDATE SET value = value + 1), explicit locking with SELECT FOR UPDATE, automatic detection with abort (PostgreSQL, Oracle, SQL Server, not InnoDB), compare-and-set with the value or a version number."
+    tags: [isolation]
+  - front: "Optimistic locking"
+    back: "Compare-and-set with a version number incremented on every update: the update only applies if the version has not changed since you read it. Otherwise you retry the cycle."
+    tags: [isolation]
+  - front: "Lost updates with multi-leader replication"
+    back: "Locks and compare-and-set assume a single up-to-date copy, which does not exist. What remains are siblings and merging, which work if the operations are commutative (CRDTs). LWW loses updates."
+    tags: [isolation, replication]
+  - front: "Write skew"
+    back: "Two transactions read the same objects, decide, and update different objects. The two doctors on call who both take themselves off together. Neither a dirty write nor a lost update. Only serializability prevents it automatically."
+    tags: [isolation, anomalies]
+  - front: "Write skew pattern"
+    back: "A SELECT that checks a precondition, a decision in the application, a write that changes the precondition. At commit the premise is no longer true."
+    tags: [isolation, anomalies]
+  - front: "Phantom"
+    back: "A write in one transaction changes the result of a search in another. When the search checks for the absence of rows, SELECT FOR UPDATE has nothing to lock."
+    tags: [isolation, anomalies]
+  - front: "Materializing conflicts"
+    back: "Creating in advance a table of lock rows (one per room and 15-minute slot) to lock with FOR UPDATE. Turns a phantom into a conflict on real rows. Ugly: concurrency leaks into the data model. Last resort."
+    tags: [isolation]
+  - front: "Actual serial execution"
+    back: "One transaction at a time on a single thread. Possible since RAM holds the active dataset and OLTP transactions are short. Requires stored procedures, no interactive transactions. VoltDB, Redis, Datomic."
+    tags: [serializability]
+  - front: "Why no interactive transactions in serial execution"
+    back: "The single thread would spend its time waiting for the application to send the next query over the network. All the code must be sent to the DB in advance as a stored procedure."
+    tags: [serializability]
+  - front: "Cross-shard transactions in VoltDB"
+    back: "They go in lockstep across all shards. About 1,000 per second, orders of magnitude below single-shard ones, and they do not grow by adding machines."
+    tags: [serializability, sharding]
+  - front: "Two-phase locking"
+    back: "Shared and exclusive locks on every object, held until the end of the transaction. Acquisition phase and release phase never overlap. Writers block readers and vice versa. InnoDB, SQL Server serializable."
+    tags: [serializability]
+  - front: "Why 2PL performs badly"
+    back: "Not because of lock overhead but because of reduced concurrency. A whole-table read blocks all writes for its duration. Unstable latencies, frequent deadlocks, one slow transaction stops everything."
+    tags: [serializability]
+  - front: "2PL vs 2PC"
+    back: "Two different things with similar names. 2PL provides serializable isolation. 2PC provides atomic commit in a distributed transaction."
+    tags: [serializability, distributed]
+  - front: "Predicate lock"
+    back: "A lock on all objects that match a condition, even those that do not exist yet. Stops phantoms. Too expensive to check in practice."
+    tags: [serializability]
+  - front: "Index-range lock"
+    back: "Approximation of a predicate lock: you lock a larger range on an index (room 123 at any time). Whoever inserts touches the same piece of index and runs into the lock. Without an index, lock on the table."
+    tags: [serializability]
+  - front: "Pessimistic vs optimistic"
+    back: "Pessimistic (2PL, serial): if something could go wrong, wait. Optimistic (SSI): go ahead and check at commit; if isolation is violated, abort and retry. Optimistic does badly with high contention."
+    tags: [serializability]
+  - front: "Serializable snapshot isolation"
+    back: "Snapshot isolation plus detection of outdated premises at commit. No blocking, long reads on a snapshot are fine, scalable across several machines. PostgreSQL serializable, CockroachDB, FoundationDB. Since 2008."
+    tags: [serializability]
+  - front: "The two cases SSI detects"
+    back: "Read of a stale MVCC version: at commit it checks whether the ignored writes have since committed. Write that affects prior reads: the write is a tripwire on the index that notifies those who had read; whoever commits second aborts."
+    tags: [serializability]
+  - front: "Why does SSI abort only at commit?"
+    back: "If the transaction were read-only there is no write skew, and the transaction that wrote could still abort. This avoids unnecessary aborts and preserves long reads."
+    tags: [serializability]
+  - front: "Commit on a single node"
+    back: "Decided by a single event: the disk finishes writing the commit record to the log. Before that you can abort, after that it is committed even with a crash."
+    tags: [distributed]
+  - front: "Atomic commitment"
+    back: "In a transaction across several nodes, either all commit or all abort. Sending commit to everyone is not enough: some may fail, and a commit once done cannot be retracted because others have already read."
+    tags: [distributed]
+  - front: "Two-phase commit"
+    back: "Phase 1: the coordinator sends prepare, each participant writes to disk and answers yes or no. The coordinator writes the decision to its log (commit point). Phase 2: commit or abort to everyone, retried forever."
+    tags: [distributed]
+  - front: "The two points of no return in 2PC"
+    back: "The participant that votes yes surrenders the right to abort. The coordinator that writes the decision to its log can no longer change it and must get everyone to apply it."
+    tags: [distributed]
+  - front: "In-doubt participant"
+    back: "It voted yes and the coordinator has disappeared. It can neither abort (others may have committed) nor commit (others may have aborted). It waits for the coordinator, holding the locks."
+    tags: [distributed]
+  - front: "Why in doubt is serious"
+    back: "Row locks remain held until the coordinator comes back: 20 minutes, or forever if the log is lost. Nobody can modify those rows. Restarting the DB does not release them, for correctness."
+    tags: [distributed]
+  - front: "Three-phase commit"
+    back: "Nonblocking commit, but assumes bounded network delays and response times. In the real world it does not guarantee atomicity. The real solution is a consensus protocol in place of the coordinator."
+    tags: [distributed]
+  - front: "XA"
+    back: "1991 standard for 2PC across heterogeneous technologies. Not a network protocol but a C API for the coordinator, implemented by the drivers (JTA, JDBC, JMS). Coordinator as a library in the app process with its log on local disk."
+    tags: [distributed]
+  - front: "Problems with XA"
+    back: "The coordinator dies with the app and the participants stay in doubt. Orphaned transactions resolved by hand. Heuristic decisions that break atomicity. Lowest common denominator: no deadlock detection or SSI across systems."
+    tags: [distributed]
+  - front: "Database-internal vs heterogeneous transactions"
+    back: "Internal: all nodes run the same software (NewSQL, Kafka), replicated coordinator, direct communication with the shards, consensus. Heterogeneous: different technologies via XA, with all its problems."
+    tags: [distributed]
+  - front: "Exactly-once without distributed transactions"
+    back: "Table of processed message IDs in the DB. Transaction: check the ID, insert it, process, commit. Then ack to the broker. Every crash point is covered: redelivery and drop on duplicate ID. Idempotence, not atomicity across systems."
+    tags: [distributed, idempotence]

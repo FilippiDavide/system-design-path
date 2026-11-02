@@ -1,0 +1,135 @@
+chapter: 6
+title: Replicazione
+cards:
+  - front: "Replica vs backup"
+    back: "La replica propaga le scritture in fretta, anche una cancellazione per errore. Il backup conserva snapshot vecchi per tornare indietro. Complementari: il backup crea repliche, l'archivio del log serve al backup."
+    tags: [replication]
+  - front: "Single-leader replication"
+    back: "Un replica è il leader e riceve tutte le scritture, le manda ai follower come log applicato nello stesso ordine. Le letture vanno ovunque. PostgreSQL, MySQL, Kafka, Raft."
+    tags: [single-leader]
+  - front: "Replica sincrona vs asincrona"
+    back: "Sincrona: il leader aspetta la conferma del follower, dato garantito ma se il follower non risponde le scritture si bloccano. Asincrona: veloce ma se il leader muore le scritture non replicate sono perse anche se confermate."
+    tags: [single-leader]
+  - front: "Replica semisincrona"
+    back: "Un follower sincrono e gli altri asincroni. Se il sincrono rallenta se ne promuove un altro. Garanzia: dati aggiornati su almeno due nodi."
+    tags: [single-leader]
+  - front: "Aggiungere un follower senza downtime"
+    back: "Snapshot consistente del leader senza lock, copia sul nuovo nodo, richiesta di tutti i cambiamenti da una posizione precisa nel log (log sequence number, GTID), applicazione del backlog."
+    tags: [single-leader, operations]
+  - front: "Zero-disk architecture"
+    back: "Tutto persistito su object storage, dischi e RAM solo cache, nodi senza stato persistente. WarpStream, Bufstream, SlateDB, warehouse cloud. Costo: latenza alta e fee per chiamata, quindi batch."
+    tags: [cloud, storage]
+  - front: "Catch-up recovery di un follower"
+    back: "Dal proprio log il follower sa l'ultima transazione applicata, chiede al leader il resto e lo raggiunge. Il leader deve decidere quanto log tenere per i follower assenti."
+    tags: [single-leader, reliability]
+  - front: "Failover"
+    back: "Promuovere un follower a leader, dirottare i client, far seguire gli altri follower il nuovo leader. Tre passi: rilevare la morte con un timeout, scegliere il più aggiornato, riconfigurare."
+    tags: [single-leader, reliability]
+  - front: "Cosa può andare storto in un failover"
+    back: "Scritture non replicate scartate, inconsistenza con sistemi esterni (GitHub e le primary key riusate), split brain con due leader, timeout troppo lungo o troppo corto."
+    tags: [single-leader, reliability]
+  - front: "Split brain"
+    back: "Due nodi credono entrambi di essere leader e accettano scritture: dati persi o corrotti. Spegnere il vecchio leader si chiama fencing, ma può spegnere entrambi o arrivare tardi."
+    tags: [single-leader, reliability]
+  - front: "Statement-based replication"
+    back: "Il leader inoltra ogni INSERT, UPDATE, DELETE. Compatto ma rotto da NOW, RAND, autoincrement, trigger. Sicuro solo con transazioni deterministiche (VoltDB)."
+    tags: [single-leader]
+  - front: "WAL shipping vs log logico"
+    back: "WAL shipping manda i byte dei blocchi di disco: accoppiato al motore, stessa versione ovunque, upgrade con downtime. Il log logico descrive righe: versioni diverse, upgrade senza downtime, leggibile da sistemi esterni (change data capture)."
+    tags: [single-leader]
+  - front: "Eventual consistency"
+    back: "Se smetti di scrivere, le repliche prima o poi convergono. Eventually è volutamente vago: frazioni di secondo di solito, minuti sotto carico. Vale per i relazionali asincroni come per il NoSQL."
+    tags: [consistency]
+  - front: "Read-after-write (read-your-writes)"
+    back: "L'utente vede sempre le proprie scritture, non necessariamente quelle degli altri. Le proprie cose dal leader, timestamp dell'ultima write per scegliere una replica abbastanza aggiornata."
+    tags: [consistency]
+  - front: "Monotonic reads"
+    back: "Una sequenza di letture dello stesso utente non vede mai dati più vecchi di quelli già visti. Il tempo non va indietro. Stessa replica per utente, scelta con un hash dell'ID."
+    tags: [consistency]
+  - front: "Consistent prefix reads"
+    back: "Se le scritture avvengono in un ordine, chi legge le vede in quell'ordine. Evita di vedere la risposta prima della domanda. Problema degli shard indipendenti senza ordine globale."
+    tags: [consistency]
+  - front: "Regione e availability zone"
+    back: "Regione: più datacenter in un luogo geografico. Zona: un datacenter con alimentazione e raffreddamento propri. Multi-zona sopravvive a una zona giù, non a una regione giù."
+    tags: [cloud]
+  - front: "Multi-leader replication"
+    back: "Più nodi accettano scritture e le inoltrano agli altri. Active/active. Sensata solo asincrona, tipicamente un leader per regione o per dispositivo."
+    tags: [multi-leader]
+  - front: "Perché multi-leader non garantisce username unici?"
+    back: "Due leader accettano scritture singolarmente valide che insieme violano il vincolo. Limite fondamentale dei sistemi distribuiti: per i vincoli serve un leader solo."
+    tags: [multi-leader, consistency]
+  - front: "Topologie multi-leader"
+    back: "Circolare, a stella, tutti-con-tutti. Nelle prime due un nodo giù interrompe il flusso e le write si taggano con i nodi attraversati per evitare loop. Tutti-con-tutti tollera di più ma i messaggi si sorpassano."
+    tags: [multi-leader]
+  - front: "Sync engine"
+    back: "Libreria che cattura le modifiche locali, le invia o le accoda, riceve quelle altrui, le fonde e aggiorna la UI. Ogni dispositivo o tab è un leader. Automerge, Yjs, PouchDB, Firestore."
+    tags: [multi-leader, local-first]
+  - front: "Offline-first vs local-first"
+    back: "Offline-first: si continua a lavorare senza rete. Local-first: funziona anche se lo sviluppatore spegne i server, grazie a un protocollo di sync aperto. Git è local-first."
+    tags: [local-first]
+  - front: "Scritture concorrenti (definizione)"
+    back: "Nessuna delle due sapeva dell'altra quando è stata fatta. Non conta il tempo fisico ma se una è avvenuta in uno stato in cui l'altra aveva già avuto effetto."
+    tags: [conflicts]
+  - front: "Conflict avoidance"
+    back: "Tutte le scritture di un record sullo stesso leader, ad esempio una regione casa per utente. Si rompe se cambi il leader designato. Variante: ID dispari su un leader, pari sull'altro."
+    tags: [conflicts]
+  - front: "Last write wins"
+    back: "Vince il timestamp più alto, l'altra write viene scartata in silenzio anche se confermata. Fra scritture concorrenti l'ultima non è definita: scelta casuale, convergenza al prezzo di perdita di dati. Fragile con orologi di sistema."
+    tags: [conflicts]
+  - front: "Sibling"
+    back: "Valori concorrenti conservati tutti dal database e restituiti alla lettura, perché l'applicazione o l'utente li fonda e riscriva. CouchDB. Cambia l'API: un titolo diventa un insieme."
+    tags: [conflicts]
+  - front: "Anomalia del carrello Amazon"
+    back: "Merge dei sibling per unione degli insiemi: un articolo rimosso in un sibling ma presente in un altro riappariva. Un CRDT traccia le cancellazioni e dà il risultato corretto."
+    tags: [conflicts]
+  - front: "Strong eventual consistency"
+    back: "Eventual consistency più garanzia di convergenza: tutte le repliche che hanno processato le stesse scritture hanno lo stesso stato, indipendentemente dall'ordine di arrivo."
+    tags: [conflicts, consistency]
+  - front: "CRDT"
+    back: "Conflict-free replicated datatype. Ogni elemento ha un ID unico immutabile e le operazioni si riferiscono agli ID, non agli indici. Inserimenti concorrenti ordinati per ID, nessuna trasformazione. Riak, Redis Enterprise, Automerge, Yjs."
+    tags: [conflicts]
+  - front: "Operational transformation"
+    back: "Operazioni per indice. Applicando un'operazione concorrente si trasforma l'indice per tenere conto di quelle già applicate. Google Docs, ShareDB."
+    tags: [conflicts]
+  - front: "Leaderless replication (Dynamo-style)"
+    back: "Nessun leader, ogni replica accetta scritture dal client o da un coordinatore che non impone un ordine. Riak, Cassandra, ScyllaDB. DynamoDB invece è single-leader con Multi-Paxos."
+    tags: [leaderless]
+  - front: "Read repair"
+    back: "Il client legge da più repliche, vede una risposta stantia e riscrive il valore nuovo su quella replica. Copre i valori letti spesso."
+    tags: [leaderless]
+  - front: "Hinted handoff"
+    back: "Una replica conserva come hint le write destinate a una replica giù e gliele consegna quando torna. Copre anche i valori mai letti."
+    tags: [leaderless]
+  - front: "Anti-entropy"
+    back: "Processo in background che confronta le repliche e copia ciò che manca, senza ordine particolare e con ritardo."
+    tags: [leaderless]
+  - front: "Condizione di quorum"
+    back: "Con n repliche, w conferme per scrivere e r risposte per leggere: se w + r > n gli insiemi si sovrappongono e almeno un nodo letto ha il valore più recente. Tipico n dispari, w = r = maggioranza."
+    tags: [leaderless]
+  - front: "Cosa fanno w e r davvero"
+    back: "Le richieste vanno sempre a tutti gli n nodi. w e r dicono solo quante risposte aspettare prima di considerare l'operazione riuscita."
+    tags: [leaderless]
+  - front: "Limiti del quorum"
+    back: "Anche con w + r > n: nodo nuovo ripristinato da uno vecchio, rebalancing con quorum non sovrapposti, read concorrente con write, write fallita non annullata dove è riuscita, orologi avanti con LWW, write concorrenti in ordine diverso. Regola la probabilità, non la elimina."
+    tags: [leaderless, consistency]
+  - front: "Sloppy quorum"
+    back: "Durante una partizione, qualsiasi replica raggiungibile accetta la write anche se non è fra le n abituali per quella chiave. Nessuna garanzia di rilettura. Consistency level ANY in Cassandra."
+    tags: [leaderless]
+  - front: "Request hedging"
+    back: "Mandare la richiesta a più repliche e usare le risposte più veloci, ignorando quelle lente. Taglia la tail latency. Naturale nei sistemi leaderless."
+    tags: [leaderless, performance]
+  - front: "Gray failure"
+    back: "Nodo non morto ma degradato, insolitamente lento. Un sistema a leader deve decidere se vale un failover; un sistema leaderless lo ignora e basta."
+    tags: [reliability]
+  - front: "Monitorare la staleness"
+    back: "Con un leader si sottrae la posizione del follower da quella del leader nel log. Senza leader non c'è ordine e nessuna metrica pulita: il numero di hint in attesa è un indizio vago."
+    tags: [leaderless, operations]
+  - front: "Happens-before"
+    back: "A happens-before B se B sa di A, dipende da A o costruisce su A. Due operazioni sono concorrenti se nessuna happens-before l'altra. Il tempo fisico non c'entra."
+    tags: [causality]
+  - front: "Algoritmo di versione con una replica"
+    back: "Versione per chiave. La read restituisce tutti i sibling e la versione. La write porta la versione della read precedente e fonde i sibling. Il server sovrascrive le versioni minori o uguali e conserva le superiori perché concorrenti."
+    tags: [causality]
+  - front: "Version vector"
+    back: "Una versione per replica e per chiave. Ogni replica incrementa la sua e traccia quelle viste dalle altre. Viaggia al client in lettura e torna in scrittura. Distingue sovrascritture da scritture concorrenti. Riak lo chiama causal context."
+    tags: [causality]

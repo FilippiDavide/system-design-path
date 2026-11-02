@@ -1,0 +1,39 @@
+# Model answers for the chapter 1 self-check questions, in the same
+# order as the questions in docs/ch01-trade-offs.md.
+answers:
+  - section: system-of-record-vs-derived-data
+    pdf: 34
+    answer: |
+      The warehouse holds a copy of facts that were first recorded elsewhere: it is loaded from the operational systems through ETL. If the warehouse and an OLTP database disagree, the OLTP system wins by definition, and the warehouse can be dropped and rebuilt from the sources. That is exactly the definition of derived data: redundant, recreatable, kept for read performance and to look at the same data from another angle.
+
+      It is a property of how the system is used, not of the technology: the same database engine could be a system of record for one dataset and a derived store for another.
+  - section: cloud-native
+    pdf: 38
+    answer: |
+      A cloud native system is designed around other cloud services instead of around a single machine with its own disk. Durable data lives in object storage or a dedicated small-value service, compute is separate from storage and can be scaled or replaced independently, and many tenants share the same infrastructure. Running MySQL on a VM is "self-hosted software in the cloud", not cloud native.
+
+      The payoff the book cites: better performance on the same hardware, faster recovery, fast scaling and larger datasets.
+  - section: separation-of-storage-and-compute
+    pdf: 40
+    answer: |
+      A virtual disk pretends to be a local block device, but every read and write becomes a network call. That adds overhead and makes the database sensitive to network glitches it cannot see or reason about. Cloud native systems prefer to be explicit about it: they write large chunks to object storage (cheap, durable, designed for big files) and small values to a service built for that, and they treat the VM's local disk as a cache that may vanish at any time.
+  - section: the-price
+    pdf: 44
+    answer: |
+      After a timeout the server is in one of two states from the client's point of view: it never executed the request (the request was lost, or the server was down), or it did execute it and the response was lost (or is just late). The client cannot distinguish them.
+
+      A retry is therefore safe only if executing the request twice is harmless, that is, if the operation is idempotent. Charging a card or sending an email twice is not. The usual fix is an idempotency key that lets the server recognise a repeat and answer without executing again.
+  - section: microservices-and-serverless
+    pdf: 45
+    answer: |
+      Microservices do not make a system faster or more reliable by themselves; they let many teams work without stepping on each other. Each service has one purpose, one API, its own database and one owning team, so teams can deploy independently and hide their implementation. The price is paid in testing, infrastructure per service and API evolution. With few teams there is nothing to decouple, so the book's rule is: few teams, no microservices.
+  - section: operations-in-the-cloud-era
+    pdf: 41
+    answer: |
+      What changes is the object of the work. Capacity planning becomes financial planning (metered billing: what you use and why), performance optimization becomes cost optimization, and patching machines becomes choosing, integrating and migrating between services, with provider quotas to know in advance.
+
+      What does not change: security of the application and its libraries, the interactions between your own services, monitoring, and finding the root cause of degradations and outages. Integration between cloud services has no standard, so it stays manual work.
+  - section: law-and-society
+    pdf: 48
+    answer: |
+      Data minimization says collect only for an explicit purpose, do not reuse it for something else, and do not keep it longer than necessary. Immutable append-only logs are built on the opposite assumption: keep every event forever and derive views from the history. Deleting one person's data from the middle of an immutable file, and from every derived dataset built from it (including trained ML models), is an open engineering problem the book returns to repeatedly.

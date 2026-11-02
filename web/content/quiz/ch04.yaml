@@ -1,0 +1,73 @@
+# Model answers for the chapter 4 self-check questions, in the same
+# order as the questions in docs/ch04-storage-and-retrieval.md.
+answers:
+  - section: sstable-sorting-by-key
+    pdf: 143
+    answer: |
+      The hash index keeps the append-only file and adds an in-memory map from key to the byte offset of its latest value. Reads become one probe and one seek, but four limits remain: dead values pile up until a compaction rewrites the segment, the map must be rebuilt by scanning the file after a restart, every key must fit in RAM, and a range query is impossible because a hash map has no order, so you would have to look up each key one by one.
+
+      Sorting the file by key (an SSTable, each key once) changes the picture. A sparse index is enough: keep the first key of every block of a few KB, and to find "handiwork" jump to "handbag" and scan one block. The blocks can be compressed, and range queries come naturally because neighbouring keys are neighbours on disk. The price is that you can no longer append at the end, which is what the memtable and the LSM-tree solve.
+  - section: sstable-sorting-by-key
+    pdf: 143
+    answer: |
+      A write goes into the memtable, a sorted in-memory tree (red-black tree, skip list), and in parallel is appended to a log on disk whose only purpose is to rebuild the memtable after a crash. When the memtable exceeds a few MB it is written in one sequential pass as a new SSTable segment, and a fresh memtable starts. In the background, merging and compaction fuse segments like a mergesort, keeping the most recent value of each key.
+
+      A read looks in the memtable first, then in the segments from newest to oldest, stopping at the first hit; a Bloom filter per segment lets it skip segments that certainly do not contain the key.
+
+      A deletion does not erase anything: it writes a tombstone, a special record for that key, which lands in the memtable and then in a segment like any other value. During reads it hides older copies, and during the merge it tells the process to discard the previous values for that key. The tombstone itself is dropped only once it has travelled through every level, which is why guaranteed deletion is slow in an LSM-tree.
+  - section: bloom-filter
+    pdf: 146
+    answer: |
+      A Bloom filter is a bit array plus a few hash functions: every key in the segment sets a few bits. On a query, if any of the key's bits is 0 the key is definitely absent and the segment is skipped without a disk read. If they are all 1 the key is probably there, so the segment is read.
+
+      A false positive only means one wasted segment read that finds nothing, after which the search continues to the next segment, so the answer is still correct. The filter never says "no" for a key that is present, so there are no false negatives, which is the direction that would matter. The cost of false positives is tuneable: about 10 bits per key give a 1% rate, and every additional 5 bits reduce it tenfold.
+  - section: 4-lsm-trees-versus-b-trees
+    pdf: 153
+    answer: |
+      On a spinning disk the reason is the head: random writes mean seeks. SSDs have no head, but flash is written per page (4 KiB) and erased per block (512 KiB). Before erasing a block the controller must move the still-valid pages elsewhere, a garbage collection step. Sequential writes fill whole blocks with the same file, so when that file is deleted the block can be erased in one go without moving anything. Random writes leave blocks mixed with live and dead pages, so garbage collection runs more often, steals bandwidth from the application and wears the flash out faster. An LSM-tree writes whole segments sequentially; a B-tree overwrites pages scattered across the disk.
+  - section: making-it-reliable
+    pdf: 151
+    answer: |
+      The write-ahead log is an append-only file on disk to which every modification is written before any page is overwritten. A B-tree changes pages in place, and a split touches several pages at once: the two half-full pages and the parent. A crash halfway leaves a tree with an orphan page or a dangling reference, and the hardware can even write half a page, a torn page.
+
+      With the WAL, after a crash the engine replays the log and restores a consistent tree. It is also what makes durability precise: the data is durable once the WAL record has been written and fsync has returned successfully, even if the modified pages are still only in memory. The cost is that every piece of data is written at least twice, which is part of the B-tree's write amplification.
+  - section: 4-lsm-trees-versus-b-trees
+    pdf: 153
+    answer: |
+      Write amplification is the ratio between the bytes actually written to disk and the bytes you would write with a pure append-only log. A B-tree writes every change to the WAL and then overwrites a whole page, often 4 KiB for a few bytes; an LSM-tree writes the log, then the memtable to disk, then rewrites the data at every compaction. It matters for throughput in write-heavy workloads, since the disk's bandwidth is shared, and for SSD wear.
+
+      A short benchmark on an empty LSM-tree only measures the log and the first flushes: no compaction has happened yet, so no data has been rewritten. Once the tree has several levels, each compaction rewrites segments again and the amplification rises. Measure over a long run, with the engine in a steady state, or the LSM looks faster than it is.
+  - section: 5-secondary-indexes-and-where-the-values-live
+    pdf: 156
+    answer: |
+      In a clustered index the whole row is stored inside the index: InnoDB's primary key is always clustered, so finding the key gives you the row with no further read. With a heap file the index holds only a reference, a location in a file where rows are stored in no particular order (PostgreSQL), or the primary key that a second lookup resolves (InnoDB secondary indexes); the row lives in the heap and costs an extra hop. Updating a value that grows means moving it in the heap and updating every index, or leaving a forwarding pointer behind.
+
+      A covering index is the compromise: it stores a few extra columns beyond the key, so a query that needs only those columns is answered from the index alone without touching the heap. More copies of the data mean more work on writes and more care to keep them consistent, which is the usual trade-off of any index.
+  - section: 6-keeping-everything-in-memory
+    pdf: 157
+    answer: |
+      Not because it avoids reading from disk: with enough RAM a disk-based database also serves every read from the operating system's page cache. The gain is avoiding the overhead of encoding the data structures into a form that can be written to disk and decoding them again, and of managing pages and buffers around that.
+
+      Durability is still achieved with the disk, but only for that: an append-only log of changes, periodic snapshots, or replicas. Reads never go there. A bonus is that data models which are awkward on disk, such as Redis's priority queues and sets, become natural in memory.
+  - section: sort-order
+    pdf: 164
+    answer: |
+      In a column file all values have the same type and often few distinct values: a product column across billions of sales holds maybe 100,000 distinct products. That lets the engine encode the column as one bitmap per value, one bit per row, and the bitmaps are sparse, so run-length encoding stores a long run of zeros as a single count. Queries can even run directly on the compressed form as bitwise operations.
+
+      The rows are sorted by whole row, not column by column, on a key chosen from the queries, for example date_key then product_sk. The first sort column is sorted, so all its identical values sit next to each other: one date repeats for millions of rows and becomes a handful of runs that compress to a few KB. The second column is only sorted within each run of the first, so its runs are shorter; the third shorter still. Columns further down the sort key look almost random and compress much less.
+  - section: writing-to-column-oriented-storage
+    pdf: 165
+    answer: |
+      You do not insert it in place. Sorted, compressed column files would all have to be rewritten to open a gap in the middle. Instead the same log-structured idea is used: the write goes to a row-oriented, sorted, in-memory store; when enough writes have accumulated they are merged with the column files by writing new files in bulk. The old files stay immutable, which also makes them a natural fit for object storage. At query time the engine combines the column files on disk with the recent rows in memory, so the analyst sees the new row immediately even though it has not reached the column files yet. This is exactly what the LSM-tree does, applied to analytics.
+  - section: spatial
+    pdf: 169
+    answer: |
+      A concatenated index sorts by the first attribute and, within equal values, by the second, like a phone book sorted by last name then first name. An index on (lat, lon) is therefore sorted by latitude; the longitudes are only ordered inside a given latitude. A rectangle query is a range on both dimensions at once: the index can give you all points in the latitude range, but those are spread across every longitude, so you still have to filter them one by one, or use the longitude range and scan every latitude. Either way one dimension is not indexed.
+
+      The fixes are a space-filling curve that turns two coordinates into one number so a normal B-tree can be used, or specialised structures like R-trees and Bkd-trees that divide the space while keeping nearby points together.
+  - section: full-text-the-inverted-index
+    pdf: 170
+    answer: |
+      An inverted index maps each term to the list of IDs of the documents that contain it, the postings list. That list can be represented as a sparse bitmap over all documents, exactly like a warehouse bitmap over all rows for one value of a column. "red apples" is the AND of two bitmaps, the same operation as product = 30 AND store = 3 in a vectorized query; what the warehouse calls a column value, the search engine calls a term.
+
+      The storage side is the same too: Lucene keeps the term-to-postings mappings in sorted, SSTable-like files, writes new ones and merges them in the background, so Elasticsearch runs on an LSM-tree under a different name. PostgreSQL's GIN index uses the same postings lists for full-text and JSON. Three names, one mechanism: sorted immutable files plus bitmaps combined with bitwise operations.

@@ -1,0 +1,69 @@
+# Model answers for the chapter 11 self-check questions, in the same
+# order as the questions in docs/ch11-batch-processing.md.
+answers:
+  - section: 1-what-a-batch-job-is
+    pdf: 475
+    answer: |
+      A batch job reads immutable input and regenerates its output from scratch, with no side effects. If a bug in the code produces wrong output, you fix the code and rerun, and the bad output is simply replaced; if you kept the previous output in another directory (or the object store or table format keeps old versions, "time travel"), you can even roll back instantly. The book calls this human fault tolerance: mistakes are reversible, so development is faster and less risky.
+
+      A read/write database does not have this property because the code mutates the data in place. Rolling back the code does not repair the records it already changed, and the pre-bug state is gone unless you restore it from a backup.
+  - section: 2-batch-processing-with-unix-tools
+    pdf: 478
+    answer: |
+      The two approaches differ in execution flow, not in syntax. An in-memory hash table (the Python dictionary URL to counter) has a working set equal to the number of distinct keys: it wins while that fits in RAM, which is often true even on a laptop, and it needs only one pass. Sorting (the Unix pipeline) has no working set at all: it produces a sorted list with repetitions, so when the data exceeds memory, sort spills to disk with a mergesort, reads and writes sequentially and uses all the cores, and the bottleneck becomes reading the file.
+
+      That spill-and-merge is exactly the LSM-tree technique of chapter 4: sorted runs built in memory, written out as segments, merged later. The same idea reappears inside every mapper of a shuffle.
+  - section: job-orchestration
+    pdf: 485
+    answer: |
+      The task executor runs on every node (kubelet in Kubernetes, NodeManager in YARN): it downloads the code, launches the task isolated in a cgroup, monitors it and sends heartbeats and status back. The resource manager holds the global view of the hardware and the state of every node; it is centralised, hence a potential bottleneck, and it keeps its state in etcd or ZooKeeper. The scheduler decides which tasks go on which nodes, given the job request (tasks, CPU, RAM, GPU, image, input) and the cluster state; application-specific sub-schedulers (YARN's ApplicationMaster, Kubernetes operators) handle special needs.
+
+      Together they are the distributed counterpart of a single machine's kernel: memory allocation, instruction scheduling and process isolation.
+  - section: job-orchestration
+    pdf: 485
+    answer: |
+      Split the cluster 80 and 80: both jobs run, but each gets less than it asked for and both finish late. Gang scheduling, running one job in full and then the other: the second waits, nodes may sit idle while the first job's tail finishes, and with several jobs holding partial allocations it can deadlock. Waiting until 100 cores are free: the big job may starve forever while smaller jobs keep grabbing cores. Preemption, killing tasks of the first job to make room: the preempted work is lost and must be redone.
+
+      With millions of requests the general problem is NP-hard, so real schedulers use heuristics: FIFO, dominant resource fairness, priorities, quotas, bin-packing.
+  - section: faults
+    pdf: 489
+    answer: |
+      Spot instances are cheap VMs that the cloud provider can reclaim at any moment. Batch is in no hurry and its output is regenerated from scratch, so a task killed halfway can simply be discarded and relaunched elsewhere with no damage to the result; that makes batch the ideal customer for spot capacity.
+
+      What changes is frequency: preemptions happen far more often than hardware faults, so recovery must be routine, not exceptional. MapReduce keeps tasks independent so that a single task is retried, not the whole job. The delicate point is intermediate state, which must survive or be recomputable when the node holding it disappears.
+  - section: faults
+    pdf: 489
+    answer: |
+      MapReduce always writes intermediate output to the distributed filesystem, replicated: safe and expensive, and a failed task is just rerun reading its input from the DFS. Spark keeps intermediate state in memory, spilling to local disk, and records the lineage, how each partition was computed from its inputs; if a node dies, the lost partitions are recomputed from the immutable input by replaying that lineage. Flink keeps state in memory and pipelines operators, and takes periodic checkpoints to durable storage; on failure every operator rewinds to the last checkpoint and replays from there.
+
+      The trade-off is the same in all three: how much to pay on every run (replicated writes, checkpoints) versus how much to redo on the rare failure.
+  - section: shuffle
+    pdf: 493
+    answer: |
+      The shuffle is the algorithm that sorts data by key across many machines, with both input and output sharded. Every mapper writes one local file per reducer, choosing the file by the hash of the key (like hash sharding), and sorts each file by key using the LSM technique. When the mappers are done, every reducer copies its slice from all the mappers and merges the sorted files mergesort-style, so equal keys are adjacent and the reducer is called once per key with an iterator over the values; its output is one file per reduce task.
+
+      The name is misleading because nothing is random: the result is a deterministic, sorted order. Equal keys meet in one reducer because the hash is a function of the key alone, so every mapper sends the same key to the same reducer number.
+  - section: joins-and-group-by
+    pdf: 495
+    answer: |
+      Take an event log (user_id, URL) and a users table (user_id, date of birth), both too big for one machine. One mapper emits (user_id, URL) from the events, another emits (user_id, date of birth) from the users; the shuffle sends everything with the same user_id to the same reducer, where a secondary sort puts the user record first and the events after it in time order. The reducer reads the user record, keeps it in memory, and emits a joined record for each following event; when the key changes it forgets it and starts again.
+
+      It makes no network requests because the shuffle already brought every record it needs to its own input, in the right order: the join is a merge of sorted streams, with a single record of state. The next job can then shuffle by URL and count per age bracket, which is a group by with aggregation.
+  - section: dataflow-engines
+    pdf: 492
+    answer: |
+      Spark and Flink treat the whole workflow as one job and model the flow between stages explicitly. Compared to MapReduce: they sort only where the computation needs it, not between every map and reduce; consecutive operators that do not change the sharding, such as map and filter, are fused into one task; declared dependencies let the scheduler place consumer and producer on the same machine and exchange data through memory; intermediate state stays in memory or on local disk instead of being replicated to the DFS; an operator starts as soon as its input is ready rather than waiting for the previous stage to finish; and processes are reused, with no new JVM per task.
+
+      They also offer relational operators (join, group by, aggregate), so joins no longer have to be written by hand.
+  - section: languages
+    pdf: 497
+    answer: |
+      A Pandas DataFrame lives on one machine, has an index and a stable row order, and executes each call immediately. A distributed DataFrame (Spark, Flink, Daft) looks the same on the surface but is neither indexed nor ordered, because its rows are sharded across many machines and any global order would require a shuffle. Calls are not executed as they are written: Spark records them and translates the chain into an optimized plan that runs only when a result is demanded, so an error can surface far from the line that caused it.
+
+      Daft splits the difference by running small operations on the client and big ones on the cluster, with Arrow as the common in-memory model.
+  - section: serving-derived-data
+    pdf: 503
+    answer: |
+      First, one network request per record is orders of magnitude slower than writing files. Second, many tasks writing in parallel overwhelm the database and degrade the queries of the application that depends on it. Third, external side effects break the job's all-or-nothing guarantee: a task that fails and is retried writes its records twice, and a half-finished job leaves the database in a state that is neither old nor new.
+
+      The alternative is to push the output into a stream, such as a Kafka topic, that Elasticsearch, Pinot, Druid, Venice or ClickHouse ingest natively: sequential writes, a buffer so consumers set their own pace, one output for many consumers, and a boundary between the batch network and the production network. What it does not solve by itself is atomicity: the job still has to signal completion, and consumers must keep the new data invisible until then, like an uncommitted transaction. Building a new database inside the job and bulk-importing it is the other option, with an atomic switch but hard incremental updates.

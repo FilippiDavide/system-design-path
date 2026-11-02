@@ -1,0 +1,117 @@
+chapter: 13
+title: A Philosophy of Streaming Systems
+cards:
+  - front: "Why every application composes several systems"
+    back: "No single tool serves all use cases: every piece of software is designed for one pattern. A complex app uses data in different ways (OLTP, full-text, warehouse, cache, ML) and must combine several technologies."
+    tags: [integration]
+  - front: "Principle for dataflows"
+    back: "Funnel all input through a single system that decides a total order, then derive the rest in the same order. If the index is updated only via CDC it is entirely derived and consistent. CDC versus event sourcing is secondary."
+    tags: [integration]
+  - front: "Derived data vs distributed transactions"
+    back: "Same goal: atomic commit versus deterministic retry plus idempotence. Main difference: transactions let you read the written value immediately, derived data is asynchronous and does not guarantee it."
+    tags: [integration]
+  - front: "Limits of total ordering"
+    back: "Throughput beyond one node (sharded log), several regions (one leader per region), microservices with separate state, clients with local and offline state. Total ordering is consensus and assumes one node that handles everything."
+    tags: [integration]
+  - front: "The ex and the nasty message"
+    back: "Unfriend and message live in different places; notifications are a join and may process the message before the unfriend. Logical timestamps, logging the state seen with an ID, CRDTs for state but not for external side effects."
+    tags: [integration, causality]
+  - front: "Why asynchrony makes things robust"
+    back: "A failure in one consumer stays local: the log acts as a buffer. Distributed transactions abort if one participant fails and amplify failures to the rest of the system."
+    tags: [integration]
+  - front: "Reprocessing for evolution"
+    back: "Old and new view derived from the same data, users moved gradually, every step reversible. Like the third rail of the English railways to change gauge without stopping the lines."
+    tags: [integration]
+  - front: "Kappa architecture"
+    back: "Batch and stream in the same system. Needs replay of historical events through the same engine, exactly-once, and windowing by event time. Apache Beam on Flink or Dataflow. Lambda has fallen out of favor."
+    tags: [integration]
+  - front: "What CREATE INDEX does"
+    back: "Scans a consistent snapshot, extracts and sorts the values, writes the index, applies the backlog since the snapshot, then keeps it up to date. Identical to setting up a new follower and to bootstrapping CDC: the DB reprocesses and derives a view."
+    tags: [unbundling]
+  - front: "The meta-database of everything"
+    back: "An organization's dataflow is one huge database: batch and stream processors are triggers and view maintenance, derived systems are kinds of index provided by different software and teams."
+    tags: [unbundling]
+  - front: "Federated vs unbundled database"
+    back: "Federated unifies reads with a query interface over different engines (Trino, foreign data wrappers), relational tradition. Unbundled unifies writes by connecting systems via CDC and event logs, Unix tradition. The hard problem is the writes."
+    tags: [unbundling]
+  - front: "Why a log beats transactions across heterogeneous technologies"
+    back: "Without a standard transaction protocol across systems owned by different teams, an ordered log with idempotent consumers is a simpler and more feasible abstraction."
+    tags: [unbundling]
+  - front: "Loose coupling at two levels"
+    back: "System: a slow or failed consumer does not stop the producer and the other consumers, the failure is contained. Human: components developed by different teams with clear interfaces. The log is powerful (durability, ordering) and general."
+    tags: [unbundling]
+  - front: "When unbundling is wrong"
+    back: "If one product does everything you need, use it. More moving parts cost operationally, an integrated system is more predictable on its workload. Building for scale you do not need is premature optimization. Breadth, not depth."
+    tags: [unbundling]
+  - front: "The spreadsheet as a model"
+    back: "Change a cell and the dependent formulas recompute. That is what we want at the system level: change a record, indexes and caches update themselves. VisiCalc did it in 1979."
+    tags: [dataflow]
+  - front: "Application code as a derivation function"
+    back: "Secondary index, full-text, ML model, cache: all derived by a transformation. When it is not off the shelf you need custom code, and DBs struggle: triggers and stored procedures are an afterthought."
+    tags: [dataflow]
+  - front: "Separation of Church and state"
+    back: "DBs are terrible deployment environments, Kubernetes is good at it. Hence stateless services with state in the DB. But the DB becomes a shared mutable variable you cannot subscribe to: you poll."
+    tags: [dataflow]
+  - front: "The two properties log-based brokers give to dataflow"
+    back: "Stable ordering, so that several views derived from the same log stay consistent with each other. Fault tolerance, because a lost message leaves things out of sync forever. Much cheaper than distributed transactions."
+    tags: [dataflow]
+  - front: "Purchase in a foreign currency: microservices vs dataflow"
+    back: "Microservices: query the exchange rate service, synchronous request. Dataflow: subscribe to the exchange rate stream and keep the rate in a local DB. The fastest network request is the one you never make. In both the join is time-dependent."
+    tags: [dataflow]
+  - front: "Write path and read path"
+    back: "Write path: everything that happens to a written piece of data up to the derived datasets, eager. Read path: when a user asks, lazy. The derived dataset is where they meet: trade-off between work at write time and at read time."
+    tags: [dataflow]
+  - front: "What caches, indexes and views do"
+    back: "They shift the boundary between write path and read path: more work at write time to save at read time. Full-text: no index is grep, all queries precomputed is impossible, the cache of common queries sits in between."
+    tags: [dataflow]
+  - front: "State on the client"
+    back: "State on the device is a cache of the server's state; the pixels are a materialized view of the model, which is a local replica of the datacenter. Server-sent events and WebSockets extend the write path all the way to the user."
+    tags: [dataflow]
+  - front: "Why the offline client is already solved"
+    back: "It is a consumer with an offset that resumes without missing anything, as in a log-based broker. Every device is a small subscriber to a small stream."
+    tags: [dataflow]
+  - front: "Reads are events"
+    back: "Read requests as events on the same stream processor, which responds on an output stream. It is a stream-table join between queries and database. A subscription is a persistent join. Helps provenance and multishard processing."
+    tags: [dataflow]
+  - front: "The retried $11 transfer"
+    back: "The connection drops after the COMMIT, the client reconnects and retries: outside the scope of TCP and the transaction is not idempotent, $22. 2PC does not cover the browser-server hop. An end-to-end request ID is needed."
+    tags: [correctness]
+  - front: "Request ID with unique constraint"
+    back: "Client-generated UUID in the form, inserted into a requests table with a unique constraint in the same transaction. The second INSERT fails. Relational DBs maintain uniqueness even at weak isolation, a check-then-insert does not."
+    tags: [correctness]
+  - front: "End-to-end argument"
+    back: "Saltzer, Reed, Clark 1984: a function can be completely implemented only with the knowledge of the applications at the endpoints; providing it in the communication system is not enough. Duplicates, checksums, encryption. Low-level mechanisms reduce the probability."
+    tags: [correctness]
+  - front: "Uniqueness requires consensus, but scales"
+    back: "A leader decides. Shard by the value that needs to be unique: same username to the same shard by hash. Asynchronous multi-leader is out. With a sharded log, a single-threaded processor decides deterministically who is first."
+    tags: [correctness]
+  - front: "Multishard payment without 2PC"
+    back: "Request with ID on the source account's log. The processor reserves and emits events with the same ID to source, destination and fees. Each processor deduplicates by ID. Requirements: log order, at-least-once, determinism."
+    tags: [correctness]
+  - front: "Where atomicity comes from without transactions"
+    back: "From the append of the initial request to the log, an atomic action. Once in the log, all downstream events will arrive, perhaps after recovery, perhaps duplicated but ignored by ID."
+    tags: [correctness]
+  - front: "Timeliness"
+    back: "The user sees an up-to-date state. The violation is temporary: wait and try again. Linearizability and read-after-write provide it. Allowed under eventual consistency."
+    tags: [correctness]
+  - front: "Integrity"
+    back: "No corruption: no lost, contradictory or false data; derived data correct. The violation is permanent and needs explicit repair. Atomicity, durability and exactly-once preserve it. Matters more than timeliness."
+    tags: [correctness]
+  - front: "How dataflows preserve integrity"
+    back: "The operation as a single message that can be written atomically, deterministic derivations, client request ID at all levels, immutable messages that can be reprocessed."
+    tags: [correctness]
+  - front: "Loose constraints and cost of the apology"
+    back: "Overbooking, overdraft, goods sold beyond stock: corrected with a compensating transaction. If the cost of the apology is acceptable, write optimistically and verify afterwards. Integrity is needed, not timeliness of the constraint."
+    tags: [correctness]
+  - front: "Coordination-avoiding systems"
+    back: "Integrity without atomic commit or linearizability, loose constraints where acceptable. Multi-leader across datacenters with strong integrity and weak timeliness. Synchronous coordination only where needed. Not zero apologies, the right point."
+    tags: [correctness]
+  - front: "Trust, but verify"
+    back: "The system model is binary, reality is probabilistic. HDFS and S3 re-read files in the background and compare them with the replicas. If you want to know the data is there, read it. Test the backups."
+    tags: [auditing]
+  - front: "Designing for auditability"
+    back: "Input as an immutable event, state derived with deterministic functions: same events, same code, same state. Hashes over the log, re-running the processors for comparison, time-travel debugging."
+    tags: [auditing]
+  - front: "Blockchain and Merkle trees"
+    back: "Blockchain: append-only log with cryptographic verification and Byzantine consensus, too much overhead for almost everything. Merkle trees and certificate transparency use the same tools in lightweight form, with one leader per log."
+    tags: [auditing]

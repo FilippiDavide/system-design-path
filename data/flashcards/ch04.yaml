@@ -1,0 +1,138 @@
+chapter: 4
+title: Storage and Retrieval
+cards:
+  - front: "Fundamental trade-off of indexes"
+    back: "An index is a derived structure that speeds up reads but costs space and slows down every write. That is why databases don't index everything: you choose them based on the queries."
+    tags: [indexes]
+  - front: "Log (in the book's sense)"
+    back: "An append-only sequence of records on disk, not necessarily human-readable. Appending to a file is the cheapest write possible."
+    tags: [storage]
+  - front: "Limitations of an in-memory hash index over a log"
+    back: "Space is never reclaimed, the map must be rebuilt on restart, it must fit in RAM, and range queries are impossible."
+    tags: [lsm]
+  - front: "SSTable"
+    back: "Sorted String Table: a file of key-value pairs sorted by key, each key appearing only once. It enables a sparse index, compressed blocks and range queries."
+    tags: [lsm]
+  - front: "Sparse index"
+    back: "Stores only the first key of every block of a few KB. Thanks to the ordering you know which block to look in and you scan only that one."
+    tags: [lsm, indexes]
+  - front: "Memtable"
+    back: "Sorted in-memory tree (red-black, skip list, trie) that receives the writes. When it exceeds a few MB it is written to disk as an SSTable."
+    tags: [lsm]
+  - front: "Path of a read in an LSM-tree"
+    back: "First the memtable, then the on-disk segments from newest to oldest, skipping those the Bloom filter rules out."
+    tags: [lsm]
+  - front: "Compaction"
+    back: "Background process that merges SSTable segments like a mergesort, keeping only the most recent value for each key and discarding deleted ones."
+    tags: [lsm]
+  - front: "Tombstone"
+    back: "Special deletion record appended to the log. During compaction it tells the process to discard the previous values of the key. It is dropped once it reaches the oldest segment."
+    tags: [lsm]
+  - front: "LSM-tree"
+    back: "Log-Structured Merge-tree: a cascade of immutable SSTables merged in the background. RocksDB, Cassandra, ScyllaDB, HBase, descended from the Bigtable paper."
+    tags: [lsm]
+  - front: "Why do immutable segments simplify crash recovery?"
+    back: "A crash during the write leaves an incomplete file that is simply deleted. The memtable's log uses checksums to discard partially written records."
+    tags: [lsm, reliability]
+  - front: "Bloom filter"
+    back: "Probabilistic structure per segment: if it says no, the key is definitely not there and the segment is skipped. If it says yes, it may be there. About 10 bits per key for a 1% false positive rate."
+    tags: [lsm]
+  - front: "Size-tiered vs leveled compaction"
+    back: "Size-tiered merges small SSTables into large ones, great for write-heavy workloads but uses lots of space. Leveled keeps fixed-size SSTables in levels partitioned by key, better for reads."
+    tags: [lsm]
+  - front: "Embedded database"
+    back: "A library in the same process as the app, with no network API. RocksDB, SQLite, LMDB, DuckDB. Standard on mobile, valid on the backend for small data and low concurrency, even one instance per tenant."
+    tags: [storage]
+  - front: "B-tree"
+    back: "Database broken into fixed-size pages overwritten in place. Balanced tree with a branching factor of hundreds, 3 or 4 levels deep. The standard for relational databases since 1970."
+    tags: [btree]
+  - front: "Page split"
+    back: "When inserting into a full page, it is split into two half-full pages and the parent is updated with the new boundary. Splits can propagate up to the root, which then produces a new root."
+    tags: [btree]
+  - front: "Write-ahead log"
+    back: "Append-only file where every modification to the B-tree is written before touching the pages. After a crash it restores a consistent state. In filesystems it is called journaling."
+    tags: [btree, reliability]
+  - front: "Torn page"
+    back: "A page written only halfway because the hardware does not write a whole page atomically. One of the reasons for the WAL."
+    tags: [btree, reliability]
+  - front: "Copy-on-write in a B-tree"
+    back: "Instead of overwriting, the modified page goes to a new location and a new version of the parents pointing to it is created. LMDB. Also useful for concurrency."
+    tags: [btree]
+  - front: "LSM vs B-tree, rule of thumb"
+    back: "LSM for write-heavy workloads, B-trees for reads. But benchmarks depend on the workload and hybrid engines exist."
+    tags: [lsm, btree]
+  - front: "Why are range queries more expensive in an LSM?"
+    back: "All segments must be scanned in parallel and combined. The Bloom filter does not help because you would have to hash every possible key in the range."
+    tags: [lsm]
+  - front: "Sequential vs random writes"
+    back: "A B-tree scatters pages everywhere (random), an LSM writes whole segments (sequential). Disks have higher sequential throughput: HDDs because of the head, SSDs because of block garbage collection."
+    tags: [storage]
+  - front: "Why does sequential win even on SSDs?"
+    back: "Flash is written per 4 KiB page but erased per 512 KiB block. Sequential writes fill blocks with the same file, erasable without moving valid pages. Random writes require garbage collection and cause more wear."
+    tags: [storage]
+  - front: "Write amplification"
+    back: "Bytes written to disk divided by the bytes you would write with a pure append-only log. High amplification means fewer writes per second and more SSD wear. LSM usually lower."
+    tags: [storage]
+  - front: "Backpressure in an LSM"
+    back: "If compaction can't keep up with the writes, the memtable fills up and engines like RocksDB suspend reads and writes until it has been written to disk. Causes latency spikes."
+    tags: [lsm, performance]
+  - front: "Guaranteed deletion in an LSM"
+    back: "The deleted record remains in the higher levels until the tombstone has gone through all the compactions. It can take a long time, a problem for GDPR."
+    tags: [lsm, law]
+  - front: "Snapshots in LSM vs B-tree"
+    back: "In an LSM it is enough to write out the memtable and note which immutable segments exist, without copying them. In a B-tree with overwritten pages it is much harder."
+    tags: [lsm, btree]
+  - front: "Secondary index"
+    back: "Key-value index where the key is not unique. Either the value is a list of row IDs, or each entry is made unique by appending the row ID. Built on a B-tree or an LSM."
+    tags: [indexes]
+  - front: "Clustered index, heap file, covering index"
+    back: "Clustered: the whole row lives in the index (InnoDB primary key). Heap: the index points to a location in an unordered file (PostgreSQL). Covering: a few extra columns in the index so the query is answered without touching the row."
+    tags: [indexes]
+  - front: "Why is an in-memory database faster?"
+    back: "Not because it avoids the disk: a disk-based DB with enough RAM also reads from the operating system cache. Because it avoids the overhead of encoding the structures in a form that can be written to disk."
+    tags: [storage]
+  - front: "Durability of an in-memory database"
+    back: "Append-only log on disk, periodic snapshots or replication to other machines. The disk is used only for that, reads stay in memory."
+    tags: [storage, reliability]
+  - front: "The four layers of the open source warehouse"
+    back: "Query engine (Trino, DataFusion), storage format (Parquet, ORC), table format (Iceberg, Delta: which files make up a table, time travel), data catalog (Polaris, Unity: which tables make up a database)."
+    tags: [analytics]
+  - front: "Column-oriented storage"
+    back: "Each column in a separate file, all with the rows in the same order. A query reads only the columns it uses. Row k is reassembled from the k-th value of each column."
+    tags: [analytics]
+  - front: "Wide-column vs column-oriented"
+    back: "Wide-column (Bigtable, HBase) is a data model with thousands of columns per row but it is row-oriented. Column-oriented is a storage layout. Similar names, different things."
+    tags: [analytics]
+  - front: "Bitmap compression"
+    back: "One bitmap for each distinct value of the column, one bit per row, compressed with run-length encoding. IN becomes an OR of bitmaps, AND across columns works because position k is the same row."
+    tags: [analytics]
+  - front: "Sort order in column-oriented storage"
+    back: "Sorting is by whole row, choosing the key columns based on the queries. The first sort column has long runs of identical values and compresses to a few KB. The later ones less and less."
+    tags: [analytics]
+  - front: "Writing to column-oriented storage"
+    back: "Log-structured approach: writes go to a sorted row-oriented in-memory store, then a bulk merge with the column files writing new immutable files. Queries combine disk and memory."
+    tags: [analytics]
+  - front: "Query compilation vs vectorized processing"
+    back: "Compilation generates machine code for the query (LLVM, like a JIT). Vectorized interprets but each operator works on batches of values from a column returning bitmaps. Both exploit caches, tight loops, SIMD and compressed data."
+    tags: [analytics]
+  - front: "Data cube"
+    back: "Materialized view of aggregates: a grid with one dimension per axis and a sum in every cell. Precomputed queries are very fast, but no flexibility on dimensions that aren't there. An accelerator, not a replacement for the raw data."
+    tags: [analytics]
+  - front: "Concatenated index"
+    back: "Several columns appended into one key, like the phone book (last name, first name). Works for the prefix but not for the second column alone, nor for ranges on two dimensions at once."
+    tags: [indexes]
+  - front: "Spatial indexes"
+    back: "For range queries on several dimensions at once. A space-filling curve on a regular B-tree, or R-trees and Bkd-trees that keep nearby points together. PostGIS uses R-trees via GiST."
+    tags: [indexes]
+  - front: "Inverted index"
+    back: "Maps a term to a postings list, the list of IDs of the documents containing it, representable as a sparse bitmap. Searching two words is an AND of bitmaps. Lucene keeps it in sorted files merged like an LSM."
+    tags: [search]
+  - front: "N-gram"
+    back: "All substrings of length n. The trigrams of hello are hel, ell, llo. An inverted index of trigrams searches arbitrary substrings and regexes, but it is large."
+    tags: [search]
+  - front: "Vector embedding"
+    back: "Vector of floats produced by an embedding model that represents a document as a point in a high-dimensional space. Semantically similar documents are close together. Cosine or Euclidean distance."
+    tags: [search]
+  - front: "Flat, IVF, HNSW"
+    back: "Flat compares against every vector, exact and slow. IVF clusters into centroids and checks only some partitions (probes), approximate. HNSW uses a layered graph from sparse to dense, approximate. Faiss and pgvector."
+    tags: [search]

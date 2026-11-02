@@ -1,0 +1,69 @@
+chapter: 14
+title: Doing the Right Thing
+cards:
+  - front: "Ethics in software"
+    back: "Not a checklist to confirm you comply but a participatory and iterative process of reflection, in dialog with the people involved, with accountability for the results. The concepts require interpretation."
+    tags: [ethics]
+  - front: "Algorithmic prison"
+    back: "Someone labeled risky by an algorithm suffers many no decisions: jobs, air travel, insurance, property rental, financial services. Systematic exclusion without proof of guilt and with little chance of appeal, whereas criminal justice presumes innocence."
+    tags: [prediction]
+  - front: "Machine learning as money laundering for bias"
+    back: "With predictive analytics the rules are inferred from the data. If the input carries a bias, the system learns and amplifies it. Features correlated with protected traits, such as the postal code, get around anti-discrimination laws."
+    tags: [prediction]
+  - front: "Credit score vs predictive analytics"
+    back: "The credit score asks how you behaved, based on correctable facts. Prediction asks who is similar to you and how they behaved: a stereotype, often based on where you live, opaque and with no recourse."
+    tags: [prediction]
+  - front: "Accountability of algorithms"
+    back: "A human who makes a mistake is held accountable and the person affected can appeal. Who is accountable for the self-driving car, the discriminatory credit scoring, the ML decision to explain to a judge? Nobody can evade responsibility by blaming the algorithm."
+    tags: [prediction]
+  - front: "Statistical data and the individual case"
+    back: "The distribution can be correct and the individual case wrong: a life expectancy of 80 years does not say when you will die. Blind belief in data is delusional and dangerous."
+    tags: [prediction]
+  - front: "Self-reinforcing feedback loop"
+    back: "Credit score used for hiring: a misfortune makes you miss payments, the score drops, you cannot find work, poverty worsens the score. The algorithmic prices of German gas stations learned to collude."
+    tags: [prediction]
+  - front: "Systems thinking"
+    back: "Consider the entire system, people included, and ask whether it amplifies existing differences or combats injustice. Many consequences can be predicted this way, even with the best intentions."
+    tags: [prediction]
+  - front: "When the user is not the customer"
+    back: "If the service is funded through advertising, the advertisers are the customers. Tracking serves them: detailed profiles retained for a long time. The user is given a free service and coaxed into engaging with it as much as possible. It is surveillance."
+    tags: [privacy]
+  - front: "The word-replacement thought experiment"
+    back: "Replace data with surveillance: surveillance warehouse, surveillance scientists. The book becomes Designing Surveillance-Intensive Applications. We have built the greatest mass surveillance infrastructure ever seen."
+    tags: [privacy]
+  - front: "Why we accept surveillance"
+    back: "I have nothing to hide: that is, you are in line with existing power structures and need not fear persecution; not everyone is so fortunate. The purpose seems benign, but combined with prediction it becomes insurance premiums and health coverage."
+    tags: [privacy]
+  - front: "Three problems with consent"
+    back: "Why is tracking necessary, only because the ads pay? Nobody understands what they provide, and the data also says things about others who have not agreed. Extraction is one-way, with no negotiation."
+    tags: [privacy]
+  - front: "Consent under the GDPR"
+    back: "Freely given, specific, informed, and unambiguous, withdrawable without detriment, in clear and plain language. Pre-ticked boxes and silence do not count. Other lawful bases exist, such as legitimate interest."
+    tags: [privacy]
+  - front: "Why not using the service is not a free choice"
+    back: "If it is regarded as essential for basic social participation, with network effects and gambling mechanics, opting out is possible only for the privileged few. For everyone else, surveillance is inescapable."
+    tags: [privacy]
+  - front: "Privacy as a decision right"
+    back: "Not keeping everything secret, but the freedom to choose what to reveal to whom, in each situation. Someone with a rare medical condition would give their data to researchers but must be able to choose who accesses it."
+    tags: [privacy]
+  - front: "Where the privacy right goes with surveillance"
+    back: "It is not eroded, it is transferred to the company, which decides what to reveal for profit and keeps the rest secret. The user loses agency even without reidentification. A historically unprecedented transfer."
+    tags: [privacy]
+  - front: "Data exhaust"
+    back: "Suggests recycled waste. It is the opposite: if advertising pays, the user's activity is a form of labor and the app is the lure to feed the surveillance infrastructure."
+    tags: [privacy]
+  - front: "Data as the new uranium"
+    back: "Toxic asset, hazardous material: everyone wants it, companies, governments, bankruptcies that sell it, frequent breaches. Balance the benefits with the risk of it falling into the wrong hands, including all future governments."
+    tags: [privacy]
+  - front: "Civic hygiene"
+    back: "Schneier: it is poor civic hygiene to install technologies that could someday facilitate a police state. Not just today's government, all future governments."
+    tags: [privacy]
+  - front: "The Industrial Revolution analogy"
+    back: "Growth and prosperity, but pollution and exploitation until the safeguards came, which raised costs and benefited everyone. Data is the pollution problem of the information age and privacy the environmental challenge."
+    tags: [privacy]
+  - front: "Data minimization vs big data"
+    back: "The GDPR requires specified and explicit purposes and data limited to what is necessary. Big data wants to maximize collection, combine, and explore for unforeseen purposes. Directly opposed. Weakly enforced so far."
+    tags: [law]
+  - front: "The first practical step"
+    back: "Do not retain data forever: purge it as soon as it is no longer needed and minimize what you collect. Data you don't have cannot be leaked, stolen, or compelled by governments. A culture shift is needed."
+    tags: [law]

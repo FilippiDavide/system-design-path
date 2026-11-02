@@ -1,0 +1,57 @@
+# Model answers for the chapter 2 self-check questions, in the same
+# order as the questions in docs/ch02-nonfunctional-requirements.md.
+answers:
+  - section: 1-case-study-the-home-timeline-of-a-social-network
+    pdf: 58
+    answer: |
+      In the pull approach nothing is precomputed: every time a user opens the timeline, a query with two joins has to look up the latest posts of the 200 accounts they follow, and with polling every 5 seconds that is 2 million queries and 400 million lookups per second. The push approach moves that work to write time: when someone posts, the post is delivered once into the cached timeline ("mailbox") of each follower, about 1 million timeline writes per second. That is 400 times less work overall, and every read is a single cache read. The cached timeline is a materialized view, the same idea as derived data in chapter 1: you pay on write to gain on read.
+
+      The trade stops working at the extremes. A celebrity with millions of followers would cause millions of timeline writes for a single post, and unlike the deliveries to someone who follows tens of thousands of accounts, they cannot be dropped. So celebrity posts are stored separately and merged into the follower's timeline at read time: push for the ordinary accounts, pull for the few that would make push explode. Both cases come up in every system design interview.
+  - section: when-an-overloaded-system-wont-recover
+    pdf: 62
+    answer: |
+      When the load approaches the capacity of the server, requests queue up behind the ones in progress and response time climbs. Clients give up after a timeout, but the server still processes their abandoned requests, and each client retries, so the load grows even more: a retry storm. The system can stay overloaded even after the external load returns to normal, because the retries alone keep the queue full, until someone restarts it. The book calls this a metastable failure.
+
+      On the client side: exponential backoff (increasing, randomized waits between retries), a circuit breaker (stop calling a service that keeps failing) or a token bucket (cap the request rate). On the server side: load shedding (reject requests early, before the system collapses), backpressure (ask clients to slow down), and the choice of queueing and load-balancing policy.
+  - section: the-four-words-for-time
+    pdf: 62
+    answer: |
+      The server can only measure its own service time, the time during which it is actually processing the request. What the user perceives is the response time: network latency in both directions plus the queueing delay at every point along the path plus the service time. The queue is the main source of variance, and a few slow requests at the front are enough to hold up everything behind them (head-of-line blocking).
+
+      A server-side metric therefore stays flat while users are waiting seconds in a queue it does not see; it hides exactly the part that varies most. That is why the chapter insists on measuring response time on the client side.
+  - section: average-median-percentiles
+    pdf: 64
+    answer: |
+      A p99 of 100 ms means that 1% of calls to that service take longer. A page that calls 20 of them in parallel is only finished when the slowest of the 20 has answered, so the page is slow whenever at least one of its calls falls in that 1%. With 20 independent calls the probability is 1 - 0.99^20, about 18%: nearly one page in five is slower than 100 ms, while for the single service it was one call in a hundred. The page's p99 is therefore far beyond the backend's p99.
+
+      This is tail latency amplification. The more services a user request fans out to, the more the tail of each backend matters, which is why Amazon defines its internal requirements on the p999 rather than on the mean.
+  - section: average-median-percentiles
+    pdf: 64
+    answer: |
+      A percentile is a point of a distribution, not a quantity that adds up. If one machine serves ten thousand requests with a p99 of 50 ms and another serves ten requests with a p99 of 2 s, the average of the two numbers (about 1 s) says nothing about what users experienced: the true p99 of the combined traffic depends on how many requests each machine handled and on the shape of each distribution. Averaging percentiles across machines, or across minutes of a rolling window, is mathematically meaningless.
+
+      The correct way is to keep a histogram per machine and per window and add the histograms, then read the percentiles from the merged histogram. That is what approximation algorithms such as HdrHistogram, t-digest and DDSketch are built for.
+  - section: 3-reliability-and-fault-tolerance
+    pdf: 67
+    answer: |
+      A fault is one component deviating from its specification: a disk stops working, a process crashes. A failure is the system as a whole no longer delivering its service, that is, no longer meeting its SLO. A fault-tolerant system is one in which a fault does not become a failure; a component whose fault does turn into a failure is a single point of failure.
+
+      The two words describe the same event at different levels: a dead disk is a failure of the disk and a fault of the server that contains it, and that server's outage is in turn a fault of the cluster it belongs to. Tolerance is always limited to declared types and numbers of faults ("one node out of three"), and because the error-handling code is where many critical bugs live, it pays to trigger faults deliberately (fault injection, chaos engineering) rather than wait for them.
+  - section: software-faults-rare-but-correlated
+    pdf: 70
+    answer: |
+      Hardware faults are frequent but independent: one disk dying says nothing about the next, so redundancy (RAID, replicas in different availability zones) handles them well. Software faults are rare but correlated: every node runs the same code, so when a dormant bug wakes up they all go down together. The 2012 leap second that hung JVMs everywhere, SSDs that all die at the same number of hours, a process exhausting a shared resource, a dependency returning corrupted data or one component's failure cascading into others are all examples. Redundancy does not help, because the copies share the bug.
+
+      The bug typically surfaces when an assumption about the environment stops being true. There is no quick fix: make assumptions explicit, test, isolate processes, let them crash and restart, avoid feedback loops and measure in production.
+  - section: three-architectures
+    pdf: 75
+    answer: |
+      In a traditional shared-disk architecture several independent machines, each with its own CPUs and RAM, access the same storage array (NAS or SAN) through a filesystem interface. Contention and locking on that shared storage limit how far it scales.
+
+      Cloud-native databases that separate storage from compute resemble shared disk, but the storage layer exposes an API designed specifically for the database rather than a generic filesystem, and it is built to avoid the historical limits: compute nodes can be added or replaced independently of the data, and durability is handled by the storage service rather than by a disk behind a mount point.
+  - section: 5-maintainability
+    pdf: 76
+    answer: |
+      Operability means making it easy for the operations team to keep the system running: good metrics and observability, no dependency on a single machine, documentation that says "if I do X then Y happens", good defaults with the possibility to override, self-healing with manual control, predictable behaviour. Automation helps with the routine cases, but the cases it cannot handle are the most complex ones, and those still land on a human.
+
+      More automation therefore requires more skilled operators, not fewer, because the operator who is called in now faces only the hard problems, with less day-to-day familiarity with the system. Automation is double-edged, and that is why "more automation" is not the same as "more operability".

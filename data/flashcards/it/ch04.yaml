@@ -1,0 +1,138 @@
+chapter: 4
+title: Storage e retrieval
+cards:
+  - front: "Trade-off fondamentale degli indici"
+    back: "Un indice è una struttura derivata che accelera le letture ma costa spazio e rallenta ogni scrittura. Per questo i database non indicizzano tutto: li scegli tu in base alle query."
+    tags: [indexes]
+  - front: "Log (nel senso del libro)"
+    back: "Sequenza append-only di record su disco, non necessariamente leggibile. Appendere a un file è la scrittura più economica possibile."
+    tags: [storage]
+  - front: "Limiti dell'hash index in memoria su un log"
+    back: "Lo spazio non si libera mai, la mappa va ricostruita al riavvio, deve stare in RAM, e le range query sono impossibili."
+    tags: [lsm]
+  - front: "SSTable"
+    back: "Sorted String Table: file di coppie chiave-valore ordinate per chiave, ogni chiave una volta sola. Permette un indice sparso, blocchi compressi e range query."
+    tags: [lsm]
+  - front: "Indice sparso"
+    back: "Memorizza solo la prima chiave di ogni blocco di qualche KB. Grazie all'ordinamento sai in quale blocco cercare e scansioni solo quello."
+    tags: [lsm, indexes]
+  - front: "Memtable"
+    back: "Albero ordinato in memoria (red-black, skip list, trie) che riceve le scritture. Quando supera pochi MB viene scritto su disco come SSTable."
+    tags: [lsm]
+  - front: "Percorso di una lettura in un LSM-tree"
+    back: "Prima la memtable, poi i segmenti su disco dal più recente al più vecchio, saltando quelli che il Bloom filter esclude."
+    tags: [lsm]
+  - front: "Compaction"
+    back: "Processo in background che fonde segmenti SSTable come un mergesort, tenendo per ogni chiave solo il valore più recente e scartando i cancellati."
+    tags: [lsm]
+  - front: "Tombstone"
+    back: "Record speciale di cancellazione appeso al log. Durante la compaction dice di scartare i valori precedenti della chiave. Si elimina quando raggiunge il segmento più vecchio."
+    tags: [lsm]
+  - front: "LSM-tree"
+    back: "Log-Structured Merge-tree: cascata di SSTable immutabili fuse in background. RocksDB, Cassandra, ScyllaDB, HBase, dal paper di Bigtable."
+    tags: [lsm]
+  - front: "Perché i segmenti immutabili semplificano il crash recovery?"
+    back: "Un crash durante la scrittura lascia un file incompleto che si cancella e basta. Il log della memtable usa checksum per scartare record parziali."
+    tags: [lsm, reliability]
+  - front: "Bloom filter"
+    back: "Struttura probabilistica per segmento: se dice no, la chiave sicuramente non c'è e si salta il segmento. Se dice sì, forse c'è. Circa 10 bit per chiave per l'1% di falsi positivi."
+    tags: [lsm]
+  - front: "Size-tiered vs leveled compaction"
+    back: "Size-tiered fonde SSTable piccole in grandi, ottima per scritture intense ma usa molto spazio. Leveled tiene SSTable di dimensione fissa in livelli partizionati per chiave, meglio per le letture."
+    tags: [lsm]
+  - front: "Database embedded"
+    back: "Libreria nello stesso processo dell'app, senza API di rete. RocksDB, SQLite, LMDB, DuckDB. Standard sul mobile, valido sul backend per dati piccoli e bassa concorrenza, anche un'istanza per tenant."
+    tags: [storage]
+  - front: "B-tree"
+    back: "Database diviso in pagine di dimensione fissa sovrascritte sul posto. Albero bilanciato con branching factor di centinaia, profondità 3 o 4 livelli. Standard dei relazionali dal 1970."
+    tags: [btree]
+  - front: "Split di pagina"
+    back: "Inserendo in una pagina piena, la si spezza in due mezze pagine e si aggiorna il padre con il nuovo confine. Gli split possono risalire fino alla radice, che allora genera una nuova radice."
+    tags: [btree]
+  - front: "Write-ahead log"
+    back: "File append-only dove ogni modifica al B-tree viene scritta prima di toccare le pagine. Dopo un crash ripristina lo stato coerente. Nei filesystem si chiama journaling."
+    tags: [btree, reliability]
+  - front: "Torn page"
+    back: "Pagina scritta solo a metà perché l'hardware non scrive atomicamente una pagina intera. Una delle ragioni del WAL."
+    tags: [btree, reliability]
+  - front: "Copy-on-write nel B-tree"
+    back: "Invece di sovrascrivere, la pagina modificata va in una posizione nuova e si crea una nuova versione dei padri che la puntano. LMDB. Utile anche per la concorrenza."
+    tags: [btree]
+  - front: "LSM vs B-tree, regola pratica"
+    back: "LSM per workload write-heavy, B-tree per letture. Ma i benchmark dipendono dal workload e esistono motori ibridi."
+    tags: [lsm, btree]
+  - front: "Perché le range query sono più care in un LSM?"
+    back: "Vanno scansionati tutti i segmenti in parallelo e combinati. Il Bloom filter non aiuta perché dovresti hashare ogni chiave possibile dell'intervallo."
+    tags: [lsm]
+  - front: "Scritture sequenziali vs random"
+    back: "B-tree sparge pagine ovunque (random), LSM scrive segmenti interi (sequenziale). I dischi hanno throughput sequenziale maggiore, HDD per la testina, SSD per la garbage collection dei blocchi."
+    tags: [storage]
+  - front: "Perché il sequenziale vince anche su SSD?"
+    back: "La flash si scrive per pagina da 4 KiB ma si cancella per blocco da 512 KiB. Scritture sequenziali riempiono blocchi dello stesso file, cancellabili senza spostare pagine valide. Le random richiedono garbage collection e usurano di più."
+    tags: [storage]
+  - front: "Write amplification"
+    back: "Byte scritti su disco diviso byte che scriveresti con un puro log append-only. Alta amplification significa meno scritture al secondo e più usura degli SSD. LSM di solito più bassa."
+    tags: [storage]
+  - front: "Backpressure nell'LSM"
+    back: "Se la compaction non regge le scritture, la memtable si riempie e motori come RocksDB sospendono letture e scritture finché non è stata scritta su disco. Causa picchi di latenza."
+    tags: [lsm, performance]
+  - front: "Cancellazione certa in un LSM"
+    back: "Il record cancellato resta nei livelli superiori finché la tombstone non attraversa tutte le compaction. Può volerci molto tempo, problema per il GDPR."
+    tags: [lsm, law]
+  - front: "Snapshot in LSM vs B-tree"
+    back: "In LSM basta scrivere la memtable e annotare quali segmenti immutabili esistono, senza copiarli. In un B-tree con pagine sovrascritte è molto più difficile."
+    tags: [lsm, btree]
+  - front: "Indice secondario"
+    back: "Indice chiave-valore dove la chiave non è unica. O il valore è una lista di ID di riga, o si rende ogni entry unica appendendo l'ID. Si costruisce su B-tree o LSM."
+    tags: [indexes]
+  - front: "Clustered index, heap file, covering index"
+    back: "Clustered: la riga intera sta nell'indice (InnoDB primary key). Heap: l'indice punta a una posizione in un file senza ordine (PostgreSQL). Covering: alcune colonne in più nell'indice così la query si risponde senza toccare la riga."
+    tags: [indexes]
+  - front: "Perché un database in memoria è più veloce?"
+    back: "Non perché evita il disco, anche un DB su disco con abbastanza RAM legge dalla cache del sistema operativo. Perché evita l'overhead di codificare le strutture in una forma scrivibile su disco."
+    tags: [storage]
+  - front: "Durabilità di un database in memoria"
+    back: "Log append-only su disco, snapshot periodici o replica su altre macchine. Il disco serve solo per quello, le letture restano in memoria."
+    tags: [storage, reliability]
+  - front: "I quattro strati del warehouse open source"
+    back: "Query engine (Trino, DataFusion), storage format (Parquet, ORC), table format (Iceberg, Delta: quali file formano una tabella, time travel), data catalog (Polaris, Unity: quali tabelle formano un database)."
+    tags: [analytics]
+  - front: "Storage a colonne"
+    back: "Ogni colonna in un file separato, tutte con le righe nello stesso ordine. Una query legge solo le colonne che usa. La riga k si ricompone dal k-esimo valore di ogni colonna."
+    tags: [analytics]
+  - front: "Wide-column vs column-oriented"
+    back: "Wide-column (Bigtable, HBase) è un modello di dati con migliaia di colonne per riga ma è row-oriented. Column-oriented è un layout di storage. Nomi simili, cose diverse."
+    tags: [analytics]
+  - front: "Compressione a bitmap"
+    back: "Una bitmap per ogni valore distinto della colonna, un bit per riga, compressa con run-length encoding. IN diventa OR fra bitmap, AND fra colonne funziona perché la posizione k è la stessa riga."
+    tags: [analytics]
+  - front: "Ordinamento in uno storage a colonne"
+    back: "Si ordina per riga intera scegliendo le colonne chiave in base alle query. La prima colonna di ordinamento ha lunghe sequenze uguali e si comprime a pochi KB. Le successive sempre meno."
+    tags: [analytics]
+  - front: "Scrivere in uno storage a colonne"
+    back: "Approccio log-structured: scritture in uno store row-oriented ordinato in memoria, poi merge in blocco con i file a colonne scrivendo file nuovi immutabili. Le query combinano disco e memoria."
+    tags: [analytics]
+  - front: "Query compilation vs vectorized processing"
+    back: "Compilation genera codice macchina per la query (LLVM, come un JIT). Vectorized interpreta ma ogni operatore lavora su batch di valori di una colonna restituendo bitmap. Entrambi sfruttano cache, loop stretti, SIMD e dati compressi."
+    tags: [analytics]
+  - front: "Data cube"
+    back: "Vista materializzata di aggregati: griglia con una dimensione per asse e una somma in ogni cella. Query precalcolate velocissime, ma nessuna flessibilità su dimensioni non presenti. Acceleratore, non sostituto dei dati grezzi."
+    tags: [analytics]
+  - front: "Indice concatenato"
+    back: "Più colonne appese in una chiave, come l'elenco telefonico (cognome, nome). Serve per il prefisso ma non per la seconda colonna da sola, né per range su due dimensioni insieme."
+    tags: [indexes]
+  - front: "Indici spaziali"
+    back: "Per range query su più dimensioni insieme. Space-filling curve su un B-tree normale, oppure R-tree e Bkd-tree che tengono vicini i punti vicini. PostGIS usa R-tree via GiST."
+    tags: [indexes]
+  - front: "Inverted index"
+    back: "Mappa termine a postings list, la lista degli ID dei documenti che lo contengono, rappresentabile come bitmap sparsa. Cercare due parole è un AND di bitmap. Lucene lo tiene in file ordinati fusi come un LSM."
+    tags: [search]
+  - front: "N-gram"
+    back: "Tutte le sottostringhe di lunghezza n. I trigrammi di hello sono hel, ell, llo. Un inverted index di trigrammi cerca sottostringhe arbitrarie e regex, ma è grande."
+    tags: [search]
+  - front: "Vector embedding"
+    back: "Vettore di float prodotto da un embedding model che rappresenta un documento come punto in uno spazio a molte dimensioni. Documenti semanticamente simili sono vicini. Distanza coseno o euclidea."
+    tags: [search]
+  - front: "Flat, IVF, HNSW"
+    back: "Flat confronta con ogni vettore, esatto e lento. IVF clusterizza in centroidi e controlla solo alcune partizioni (probe), approssimato. HNSW usa un grafo a strati dal rado al denso, approssimato. Faiss e pgvector."
+    tags: [search]

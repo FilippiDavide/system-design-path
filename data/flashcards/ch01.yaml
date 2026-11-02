@@ -1,0 +1,54 @@
+chapter: 1
+title: Trade-Offs in Data Systems Architecture
+cards:
+  - front: OLTP
+    back: Point queries by key, individual writes, current state, fixed queries hard-coded in the application, GB-TB.
+    tags: [workload]
+  - front: OLAP
+    back: Aggregates over many records, bulk import, history of events, ad hoc queries, TB-PB.
+    tags: [workload]
+  - front: ETL vs ELT
+    back: Transformation before the load (ETL) or inside the warehouse after the load (ELT).
+    tags: [analytics]
+  - front: HTAP
+    back: One system for OLTP and analytics. Usually two engines behind one interface. Does not replace the warehouse, it is useful when the same app does massive scans and point reads.
+    tags: [analytics]
+  - front: Data lake
+    back: Repository of raw files with no enforced schema, on object storage. Sushi principle, raw data is better.
+    tags: [analytics]
+  - front: Reverse ETL
+    back: Outputs of analytical systems, for example ML models, fed back into operational systems.
+    tags: [analytics]
+  - front: System of record
+    back: Canonical source of the data, each fact represented exactly once. In case of a discrepancy it wins by definition.
+    tags: [derived-data]
+  - front: Derived data
+    back: Redundant data that can be reconstructed from the source. Caches, indexes, materialized views, ML models, data warehouse. It exists for read performance.
+    tags: [derived-data]
+  - front: Cloud native
+    back: Software built on top of lower-level cloud services, for example S3, not merely run on a VM in the cloud.
+    tags: [cloud]
+  - front: Separation of storage/compute
+    back: The VM's local disk is an ephemeral cache. Durable data lives in dedicated storage services. Analyzing means moving data over the network to the compute.
+    tags: [cloud]
+  - front: Multitenancy
+    back: Several customers on the same hardware and the same service. Efficient for the provider, requires performance and security isolation.
+    tags: [cloud]
+  - front: Capacity planning in the cloud
+    back: Becomes financial planning. Performance optimization becomes cost optimization. Provider quotas remain, to be known about in advance.
+    tags: [cloud, operations]
+  - front: Partial failure
+    back: A remote call times out without knowing whether it was executed. Retrying is not automatically safe.
+    tags: [distributed]
+  - front: Observability
+    back: Collection of queryable metrics and events to diagnose distributed systems. Tracing with OpenTelemetry, Zipkin, Jaeger.
+    tags: [distributed, operations]
+  - front: Microservices
+    back: One service, one purpose, one API, one team, its own database. A technical solution to a coordination problem between people. Few teams, no microservices.
+    tags: [distributed]
+  - front: Serverless / FaaS
+    back: Metered billing applied to code execution. Time limits per function, constrained runtimes, cold starts.
+    tags: [cloud]
+  - front: Data minimization
+    back: Collect only for an explicit purpose, don't reuse, don't retain beyond what is necessary. Datensparsamkeit. The opposite of the big data philosophy, aligned with the GDPR.
+    tags: [law]

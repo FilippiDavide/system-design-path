@@ -1,0 +1,147 @@
+chapter: 8
+title: Transazioni
+cards:
+  - front: "Perché esistono le transazioni?"
+    back: "Per semplificare il modello di programmazione. Una classe enorme di errori (crash, rete, disco pieno, concorrenza) si riduce a un abort, e l'applicazione ritenta."
+    tags: [acid]
+  - front: "Atomicità ACID"
+    back: "Se qualcosa va storto a metà, la transazione viene abortita e tutte le sue scritture annullate. Non c'entra con la concorrenza. Il nome giusto sarebbe abortabilità."
+    tags: [acid]
+  - front: "Consistenza ACID"
+    back: "Gli invarianti dell'applicazione restano veri a fine transazione. Il DB impone vincoli semplici, i complessi sono responsabilità dell'app. Non è una proprietà del database."
+    tags: [acid]
+  - front: "Isolamento ACID"
+    back: "Transazioni concorrenti non si pestano i piedi. L'ideale è la serializzabilità, come se fossero girate una alla volta. Molti DB usano livelli più deboli; Oracle chiama serializable la snapshot isolation."
+    tags: [acid]
+  - front: "Durabilità: perché niente è perfetto"
+    back: "SSD che violano fsync, firmware bacati, corruzione silente, SSD usurati che perdono dati da spenti, guasti correlati che abbattono tutte le repliche. Disco, replica e backup vanno usati insieme."
+    tags: [acid, reliability]
+  - front: "Operazione atomica vs transazione"
+    back: "Increment e compare-and-set evitano il read-modify-write su un oggetto, ma non sono transazioni. Le lightweight transactions di Cassandra sono linearizzabili su un oggetto solo."
+    tags: [acid]
+  - front: "Quando servono transazioni multi-oggetto"
+    back: "Foreign key e archi che devono restare validi, dati denormalizzati da aggiornare insieme, indici secondari da aggiornare con il record."
+    tags: [acid]
+  - front: "Limiti del retry di una transazione abortita"
+    back: "Commit riuscito ma ack perso esegue due volte. Errori da sovraccarico peggiorano. Solo errori transitori, mai violazioni di vincolo. Effetti collaterali esterni partono comunque. Il client può crashare durante il retry."
+    tags: [acid]
+  - front: "Read committed"
+    back: "Niente dirty read (vedi solo dati committati) e niente dirty write (sovrascrivi solo dati committati). Default in Oracle, PostgreSQL, SQL Server."
+    tags: [isolation]
+  - front: "Dirty read"
+    back: "Leggere scritture di una transazione non ancora committata. Si vedrebbe una transazione a metà, o dati poi annullati (cascading abort)."
+    tags: [isolation, anomalies]
+  - front: "Dirty write"
+    back: "Sovrascrivere una scrittura non ancora committata. Due compratori della stessa auto: vendita a uno, fattura all'altro. Evitato con lock di riga tenuto fino a commit o abort."
+    tags: [isolation, anomalies]
+  - front: "Come si evitano i dirty read senza lock in lettura"
+    back: "Il DB tiene due versioni della riga, la committata e quella in corso, e dà ai lettori la vecchia. I lock in lettura farebbero bloccare tutte le letture da una transazione lunga."
+    tags: [isolation]
+  - front: "Read skew"
+    back: "Vedere parti del database a istanti diversi. Due conti da 500 con trasferimento di 100 in corso: si legge 500 e 400, totale 900. Ogni valore era committato. Catastrofico per backup e query analitiche."
+    tags: [isolation, anomalies]
+  - front: "Snapshot isolation"
+    back: "Ogni transazione legge da uno snapshot consistente del DB all'istante in cui è iniziata. Lettori non bloccano scrittori e viceversa. Implementata con MVCC."
+    tags: [isolation]
+  - front: "MVCC"
+    back: "Multiversion concurrency control: più versioni committate di ogni riga, marcate con inserted_by e deleted_by (txid). Un update è delete più insert. Un garbage collector rimuove le versioni che nessuno può più vedere."
+    tags: [isolation]
+  - front: "Regole di visibilità MVCC"
+    back: "Ignora le scritture delle transazioni in corso all'inizio della mia, quelle con txid successivo, quelle abortite. Una riga è visibile se chi l'ha inserita aveva committato e chi l'ha cancellata no, all'inizio della mia transazione."
+    tags: [isolation]
+  - front: "Perché repeatable read non significa nulla"
+    back: "Lo standard SQL del 1975 non conosce la snapshot isolation. PostgreSQL la chiama repeatable read, Oracle serializable, in MySQL repeatable read è più debole, in Db2 è la serializzabilità."
+    tags: [isolation]
+  - front: "Lost update"
+    back: "Due client fanno read-modify-write sullo stesso valore e il secondo sovrascrive senza incorporare il primo. Contatori, saldi, pagine wiki salvate intere."
+    tags: [isolation, anomalies]
+  - front: "Quattro rimedi al lost update"
+    back: "Operazioni atomiche (UPDATE SET value = value + 1), lock esplicito con SELECT FOR UPDATE, rilevamento automatico con abort (PostgreSQL, Oracle, SQL Server, non InnoDB), compare-and-set con valore o numero di versione."
+    tags: [isolation]
+  - front: "Optimistic locking"
+    back: "Compare-and-set con un numero di versione incrementato a ogni update: l'update vale solo se la versione non è cambiata da quando l'hai letta. Altrimenti si ritenta il ciclo."
+    tags: [isolation]
+  - front: "Lost update con replica multi-leader"
+    back: "Lock e compare-and-set assumono una copia unica aggiornata, che non esiste. Restano sibling e merge, che funzionano se le operazioni sono commutative (CRDT). LWW perde update."
+    tags: [isolation, replication]
+  - front: "Write skew"
+    back: "Due transazioni leggono gli stessi oggetti, decidono, e aggiornano oggetti diversi. I due medici di guardia che si tolgono insieme. Né dirty write né lost update. Solo la serializzabilità lo previene automaticamente."
+    tags: [isolation, anomalies]
+  - front: "Pattern del write skew"
+    back: "SELECT che verifica una precondizione, decisione nell'applicazione, scrittura che cambia la precondizione. Al commit la premessa non è più vera."
+    tags: [isolation, anomalies]
+  - front: "Phantom"
+    back: "Una scrittura in una transazione cambia il risultato di una ricerca in un'altra. Quando la ricerca controlla l'assenza di righe, SELECT FOR UPDATE non ha nulla da bloccare."
+    tags: [isolation, anomalies]
+  - front: "Materializzare i conflitti"
+    back: "Creare in anticipo una tabella di righe-lock (una per sala e quarto d'ora) da bloccare con FOR UPDATE. Trasforma un phantom in un conflitto su righe reali. Brutto: la concorrenza cola nel modello dati. Ultima spiaggia."
+    tags: [isolation]
+  - front: "Esecuzione seriale"
+    back: "Una transazione alla volta su un thread. Possibile da quando la RAM tiene il dataset attivo e le transazioni OLTP sono corte. Richiede stored procedure, niente transazioni interattive. VoltDB, Redis, Datomic."
+    tags: [serializability]
+  - front: "Perché niente transazioni interattive in esecuzione seriale"
+    back: "Il thread unico passerebbe il tempo ad aspettare che l'applicazione mandi la query successiva via rete. Tutto il codice va mandato al DB in anticipo come stored procedure."
+    tags: [serializability]
+  - front: "Transazioni cross-shard in VoltDB"
+    back: "Vanno in lockstep su tutti gli shard. Circa 1.000 al secondo, ordini di grandezza sotto le single-shard, e non crescono aggiungendo macchine."
+    tags: [serializability, sharding]
+  - front: "Two-phase locking"
+    back: "Lock shared ed exclusive su ogni oggetto, tenuti fino alla fine della transazione. Fase di acquisizione e fase di rilascio mai sovrapposte. Scrittori bloccano lettori e viceversa. InnoDB, SQL Server serializable."
+    tags: [serializability]
+  - front: "Perché 2PL ha cattive prestazioni"
+    back: "Non per l'overhead dei lock ma per la concorrenza ridotta. Una lettura di tabella intera blocca tutte le scritture per la sua durata. Latenze instabili, deadlock frequenti, una transazione lenta ferma tutto."
+    tags: [serializability]
+  - front: "2PL vs 2PC"
+    back: "Due cose diverse con nomi simili. 2PL dà isolamento serializzabile. 2PC dà commit atomico in una transazione distribuita."
+    tags: [serializability, distributed]
+  - front: "Predicate lock"
+    back: "Lock su tutti gli oggetti che soddisfano una condizione, anche quelli che non esistono ancora. Ferma i phantom. Troppo costoso da verificare in pratica."
+    tags: [serializability]
+  - front: "Index-range lock"
+    back: "Approssimazione del predicate lock: si blocca un intervallo più grande su un indice (sala 123 a qualsiasi ora). Chi inserisce tocca lo stesso pezzo di indice e incontra il lock. Senza indice, lock sulla tabella."
+    tags: [serializability]
+  - front: "Pessimistico vs ottimistico"
+    back: "Pessimistico (2PL, seriale): se qualcosa potrebbe andare storto, aspetta. Ottimistico (SSI): vai avanti e al commit verifica; se l'isolamento è violato, abort e retry. Ottimistico va male con alta contention."
+    tags: [serializability]
+  - front: "Serializable snapshot isolation"
+    back: "Snapshot isolation più rilevamento delle premesse obsolete al commit. Nessun blocco, letture lunghe su snapshot ok, scalabile su più macchine. PostgreSQL serializable, CockroachDB, FoundationDB. Dal 2008."
+    tags: [serializability]
+  - front: "I due casi che SSI rileva"
+    back: "Lettura di una versione MVCC stantia: al commit si controlla se le scritture ignorate hanno poi committato. Scrittura che tocca letture precedenti: la scrittura è un tripwire sull'indice che avvisa chi aveva letto; chi committa per secondo abortisce."
+    tags: [serializability]
+  - front: "Perché SSI abortisce solo al commit?"
+    back: "Se la transazione fosse read-only non c'è write skew, e la transazione che ha scritto potrebbe ancora abortire. Così si evitano abort inutili e si conservano le letture lunghe."
+    tags: [serializability]
+  - front: "Commit su un nodo singolo"
+    back: "Deciso da un evento solo: il disco finisce di scrivere il commit record nel log. Prima si può abortire, dopo è committato anche con un crash."
+    tags: [distributed]
+  - front: "Atomic commitment"
+    back: "In una transazione su più nodi, o tutti committano o tutti abortiscono. Mandare commit a tutti non basta: alcuni possono fallire, e un commit fatto non si ritira perché altri hanno già letto."
+    tags: [distributed]
+  - front: "Two-phase commit"
+    back: "Fase 1: il coordinatore manda prepare, ogni partecipante scrive su disco e risponde yes o no. Il coordinatore scrive la decisione nel log (commit point). Fase 2: commit o abort a tutti, ritentato per sempre."
+    tags: [distributed]
+  - front: "I due punti di non ritorno del 2PC"
+    back: "Il partecipante che vota yes rinuncia al diritto di abortire. Il coordinatore che scrive la decisione nel log non può più cambiarla e deve farla applicare a tutti."
+    tags: [distributed]
+  - front: "Partecipante in doubt"
+    back: "Ha votato yes e il coordinatore è sparito. Non può abortire (altri possono aver committato) né committare (altri possono aver abortito). Aspetta il coordinatore, tenendo i lock."
+    tags: [distributed]
+  - front: "Perché in doubt è grave"
+    back: "I lock di riga restano tenuti finché il coordinatore non torna: 20 minuti, o per sempre se il log è perso. Nessuno può modificare quelle righe. Riavviare il DB non li libera, per correttezza."
+    tags: [distributed]
+  - front: "Three-phase commit"
+    back: "Commit non bloccante, ma assume ritardi di rete e risposte limitati. Nel mondo reale non garantisce atomicità. La soluzione vera è un protocollo di consenso al posto del coordinatore."
+    tags: [distributed]
+  - front: "XA"
+    back: "Standard del 1991 per 2PC fra tecnologie eterogenee. Non un protocollo di rete ma una API C per il coordinatore, implementata dai driver (JTA, JDBC, JMS). Coordinatore come libreria nel processo dell'app con log su disco locale."
+    tags: [distributed]
+  - front: "Problemi di XA"
+    back: "Il coordinatore muore con l'app e i partecipanti restano in doubt. Transazioni orfane risolte a mano. Heuristic decisions che rompono l'atomicità. Minimo comun denominatore: niente deadlock detection né SSI fra sistemi."
+    tags: [distributed]
+  - front: "Transazioni interne vs eterogenee"
+    back: "Interne: tutti i nodi girano lo stesso software (NewSQL, Kafka), coordinatore replicato, comunicazione diretta con gli shard, consenso. Eterogenee: tecnologie diverse via XA, con tutti i suoi problemi."
+    tags: [distributed]
+  - front: "Exactly-once senza transazioni distribuite"
+    back: "Tabella degli ID dei messaggi processati nel DB. Transazione: controlla l'ID, inseriscilo, processa, commit. Poi ack al broker. Ogni punto di crash è coperto: riconsegna e scarto per ID duplicato. Idempotenza, non atomicità fra sistemi."
+    tags: [distributed, idempotence]
