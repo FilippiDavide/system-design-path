@@ -1,0 +1,13 @@
+{
+  "name": "system-design-path",
+  "private": true,
+  "description": "Root wrapper so hosted builds (Cloudflare Workers Builds) work without a root-directory setting: every script delegates to web/.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "cd web && npm ci && npm run build",
+    "deploy": "cd web && npx wrangler deploy",
+    "preview": "cd web && npx wrangler versions upload"
+  }
+}
